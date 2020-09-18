@@ -1,0 +1,82 @@
+\documentclass{scrartcl}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath, amsfonts,amssymb}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage[format=hang,font=small,labelfont=bf]{caption}
+% \usepackage{algorithmicx}
+% \usepackage{algorithm}
+% \usepackage[noend]{algpseudocode}
+% \usepackage{booktabs}
+% \usepackage{mathtools}
+% \usepackage{float}
+% \usepackage{floatpag}
+% \usepackage{comment}
+% \usepackage{cases}
+% \usepackage{mathtools}
+
+%%%%%% PREAMBLE
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator*{\unif}{Unif}
+\DeclareMathOperator*{\bin}{Bin}
+
+\newcommand{\todo}[1]{\textcolor{red}{TODO:
+    #1}\PackageWarning{TODO:}{#1!}}
+
+\newcommand{\N}{\mathbb{N}} % naturals
+\newcommand{\Q}{\mathbb{Q}} % rationals
+\newcommand{\Z}{\mathbb{Z}} % integers
+\newcommand{\R}{\mathbb{R}} % reals
+\newcommand{\ep}{\varepsilon}
+\newcommand{\expect}[1]{\operatorname{\textnormal{\textbf{E}}}\left[#1\right]}
+\newcommand{\prob}[1]{\operatorname{\textnormal{Pr}}\left(#1\right)}
+
+\begin{document}
+
+\begin{gather*}
+  y_i \sim \text{Bernoulli}(r_i) \\
+  \text{logit}(r_i) = \alpha + \sum_k \beta_k x_{ik} \\
+  \alpha, \beta \sim D(\eta)
+\end{gather*}
+
+\begin{gather*}
+  \text{logit}(r_i) = \alpha + \sum_k \beta_k x_{ik} + b_i\\
+  b_i \sim \mathcal{N}\left(\frac{1}{n_{\delta i}}\sum_{j\in\delta i}b_j, \frac{1}{n_{\delta i}\tau_b}\right)
+\end{gather*}
+
+\begin{equation*}
+      Q_{ij} =
+    \begin{cases}
+      n_{\delta i} & i = j,\\
+      -1 & i \sim j,\\
+      0 & \text{else}
+    \end{cases}
+\end{equation*}
+
+\begin{gather*}
+  y_i \sim \text{Bernoulli}(r_i) \\
+  \text{logit}(r_i) = \alpha + \sum_k \beta_k x_{ik} + b_i\\
+  b_i = \sum_{j\in N(i, h)} \sum_k\gamma_k x_{jk}\\
+  h \sim \text{Beta}(a, b)
+\end{gather*}
+
+\end{document}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% End:
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% End:
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% End:
