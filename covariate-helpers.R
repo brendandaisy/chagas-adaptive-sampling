@@ -3,15 +3,15 @@
 ## dummy matrix format
 ###
 
-require(tidyverse)
-require(caret)
-
 ## wrapper to get cov matrix with consistent reference levels
 ## if as_tibble true, will keep geospatial identifiers and infestation status
 ## TODO: maybe center and scale continuous covariates?
 make_dummy_mat <- function(df_org,
                            inter=TRUE, # include interecept col?
                            as_tibble=FALSE) {
+    require(tidyverse)
+    require(caret)
+    
     dat_disc <- df_org %>%
         select(bed_hygiene:infestation) %>%
         select(-c(num_humans:num_pigs)) # both pigs and cats had enough lvls to remain cont
@@ -118,4 +118,3 @@ make_dummy_mat <- function(df_org,
     }
     return(cov_matrix)
 }
-
