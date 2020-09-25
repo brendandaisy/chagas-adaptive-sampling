@@ -1,7 +1,6 @@
 /* 
 TODO: 
-make choice of beta priors passable as a function/argument 
-check and understand difference between implicit ~ model and explicit += model
+make choice of beta priors passable as a function/argument
 */
 
 data {
@@ -12,18 +11,18 @@ data {
 }
 
 parameters {
-  vector[K] beta; // contrasts of each risk factor
+  vector[K] beta; // slopes/risks of each cov in GLM
 }
 
 model {
-  target += cauchy_lpdf(beta | 0, 2.5);
-  target += bernoulli_lpmf(Y | inv_logit(X * beta));
-  /* beta ~ cauchy(0, 2.5); */
-  /* Y ~ bernoulli_logit(X * beta); */
+  /* target += cauchy_lpdf(beta | 0, 2.5); */
+  /* target += bernoulli_lpmf(Y | inv_logit(X * beta)); */
+  beta ~ cauchy(0, 2.5);
+  Y ~ bernoulli_logit(X * beta);
 }
 
 generated quantities {
-  vector[N] r = inv_logit(X * beta);
+  vector[N] r = inv_logit(X * beta); // prob each house is infested
   int y_pred[N] = bernoulli_rng(r);
 }
 
