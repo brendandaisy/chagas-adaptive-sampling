@@ -36,6 +36,8 @@ fit_sncar <- stan(
   iter=20000,
 )
 
+
+
 pairs(fit_s2, pars = c('tau', 'alpha', 'lp__', 'phi[1]', 'phi[20]'))
 
 mcmc_trace(as.array(phi_prior), pars='phi[1]')

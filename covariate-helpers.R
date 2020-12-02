@@ -6,22 +6,20 @@
 ## wrapper to get cov matrix with consistent reference levels
 ## if as_tibble true, will keep geospatial identifiers and infestation status
 ## TODO: maybe center and scale continuous covariates?
-make_dummy_mat <- function(df_org,
-                           inter=TRUE, # include interecept col?
-                           as_tibble=FALSE) {
+make_dummy_mat <- function(df_org, as_tibble=FALSE, contr='contr.bayes') {
     require(tidyverse)
+    require(bayestestR)
     require(caret)
+
+    ## make sure contrasts are correctly set
+    options(contrasts = c(contr, 'contr.poly'))
     
     dat_disc <- df_org %>%
         select(bed_hygiene:infestation) %>%
-        select(-c(num_humans:num_pigs)) # both pigs and cats had enough lvls to remain cont
+        select(-c(num_humans:num_pigs)) # both pigs and cats had enough var to be cont
     
     dat_cont <- df_org %>%
         select(num_humans:num_pigs)
-    
-    dat_disc %>%
-        select_if(is.factor) %>%
-        map(levels)
     
     ## relevel/collapse each factor to remove any low level counts
     dat_disc$bed_hygiene <- dat_disc$bed_hygiene %>%
@@ -92,29 +90,16 @@ make_dummy_mat <- function(df_org,
     
     dat_disc$condition_bedroom_wall <- dat_disc$condition_bedroom_wall %>%
         relevel('buen estado')
+
+    m_orth <- model.matrix(infestation ~ ., data=dat_disc)
+    cov_matrix <- cbind(m_orth, as.matrix(dat_cont))
+    colnames(cov_matrix)[1] <- 'inter'
     
-    if (inter) {
-        cov_matrix <- matrix(rep(1, nrow(dat_cont)), ncol=1) %>% # make the intercept
-            cbind(predict(dummyVars(
-                infestation ~ .,
-                data=dat_disc,
-                fullRank=TRUE
-            ), newdata=dat_disc)) %>%
-            cbind(as.matrix(dat_cont))
-        colnames(cov_matrix)[1] <- 'inter'
-    }
-    else {
-        cov_matrix <- predict(dummyVars(
-            infestation ~ .,
-            data=dat_disc,
-            fullRank=TRUE
-        ), newdata=dat_disc) %>%
-            cbind(as.matrix(dat_cont))
-    }
     if (as_tibble) {
-        cov_matrix <- cov_matrix %>%
-            as_tibble(.name_repair='minimal')
-        cov_matrix <- bind_cols(df_org[,1:4], cov_matrix, infestation=df_org$infestation)
+        cov_matrix %<>%
+            as_tibble(.name_repair='minimal') %>%
+            bind_cols(df_org[,1:4], ., infestation=df_org$infestation)
     }
+    
     return(cov_matrix)
 }

@@ -20,29 +20,6 @@ parameters {
   real<lower=0> c;
 }
 
-// transformed parameters {
-//   matrix<lower=0, upper=1>[N, N] P;
-//   P = a + b * exp(-c * A);
-// }
-
 model {
-  a ~ cauchy(0, 2.5);
-  b ~ cauchy(0, 2.5);
-  c ~ cauchy(0, 2.5);
-  tau ~ inv_gamma(.1, .1);
-  {
-    matrix[N, N] D;
-    
-    D = rep_matrix(0, N, N);
-    for (i in 1:N) {
-      for (j in 1:)
-      target += bernoulli_logit_lpmf(C[i] | a + b * exp(-c * A[i, 1]))
-      C[i, i] = 0;
-      D[i, i] = sum(C[i]);
-    }
-    
-  phi ~ multi_normal_prec(rep_row_vector(0, N), tau * (D - C));
-  }
-  beta ~ cauchy(0, 2.5);
   Y ~ bernoulli_logit(X * beta + phi);
 }
