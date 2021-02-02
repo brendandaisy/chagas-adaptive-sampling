@@ -210,7 +210,7 @@ unknown and has some noise. With some simplifying, we can then write
 our $\mat{C}$ matrix as
 
 \begin{equation}
-  \label{eq:decay-mat}
+  \label{eq:decay-mat1}
   \mat{C}(k, x_0, \mat{A}) = (1 + \exp(k (\mat{A} + x_0)))^{-1}.
 \end{equation}
 
@@ -244,13 +244,27 @@ while the second uses a exponential step function more reminiscent of
 the original SNCAR model:
 
 \begin{equation}
-  \label{eq:decay-mat}
+  \label{eq:decay-mat2}
   \mat{C}(k, x_0, \mat{A}) =
   \begin{cases}
     1 & \mat{A} \leq x_0 + 1\\
     (\mat{A} - x_0)^{-k} & \text{otherwise.}
   \end{cases}
 \end{equation}
+
+See Figure \ref{fig:fig1} for examples of these two functions. A nice
+property of both is that they are both equal to a binary neighborhood
+matrix with cutoff radius $x_0$ as $k \rightarrow\infty$.
+
+\begin{figure}
+  \centering
+  \includegraphics[width=.75\linewidth]{fig1}
+  \caption{Left: Eq. \eqref{eq:decay-mat1} with $x_0 = 100$ and
+    $k = 0.065$ (pink), $k = 1$ (red). Right:
+    Eq. \eqref{eq:decay-mat2} with $x_0 = 100$ and $k = 0.5$ (pink),
+    $k = 2$ (red).}
+  \label{fig:fig1}
+\end{figure}
 
 \subsection{Data Preparation}
 \label{sec:spatial-data}
@@ -276,28 +290,90 @@ look quite different from the prior; however, high-level observations
 about the covariance structure in Eq. \eqref{eq:car2} tend to transfer
 over to the posterior \cite{Assuncao2009}.
 
-\todo{I've done 2 experiments so far. In both, the 3 models were
-  similar but with a interesting distinction between the traditional
-  and decaying weights models; figures coming soon.}
+First, we examine the (Pearson) correlation between $\phi_i$ and
+$\phi_j$ for all possible pairs. Since the mean of each of the priors
+is 0, we have
+$\text{Corr}(\phi_i, \phi_j) = \expect{\phi_i \phi_j} /
+(\sigma(\phi_i) \sigma(\phi_j)) = \text{Cov}(\phi_i, \phi_j) /
+(\sigma(\phi_i) \sigma(\phi_j))$, where $\sigma$ is the standard
+deviation. So, we can obtain the pairwise correlation directly by
+plugging in our data locations and computing the covariance matrix
+given in Eq. \eqref{eq:car2}.
+
+Figure \ref{fig:fig2} shows the correlation between all pairs within
+800m as a function of distance, for a variety of neighborhood matrices
+$\mat{C}$. We used the traditional CAR model with a cutoff radius of
+100, along with our logistic decaying weights matrix (LCAR) and
+exponential decaying weights matrix (ECAR), each with $x_0 = 100$ and
+two different choices of $k$. We make some general observations:
+
 \begin{itemize}
-\item First, I looked at correlation between all pairs $(\phi_i, \phi_j)$ as a function of distance $a_{ij}$
-\item Second, I looked at $\text{Var}(\phi_i)$ as a function of $\alpha\in(-1, 1)$
+\item In all models, for a fixed distance there is large variation in
+  the correlation. This occurs from variability in higher-order paths
+  between pairs \cite{Assuncao2009}.
+\item All models appear very similar when $k$ is set to a high enough
+  value, though $k$ scales differently between LCAR and ECAR. When $k$
+  is too low, overall correlation is much lower.
+\item With the traditional CAR matrix, there is a clear region where
+  correlations are either reasonably high, or exactly zero. This is
+  presumably because at these distances, some points will end up in
+  different connected components, so it makes sense that this does not
+  appear in the decaying weights models.
 \end{itemize}
 
-% \begin{figure}
-%   \centering
-%   \includegraphics[width=\linewidth]{../car-models/priors-var}
-%   \caption{Variance of spatial effect priors as $\alpha$ changes. From
-%     top left to bottom right: CAR model with $h = 100$, $h = 175$, CAR
-%     model with logistic decay and $x_0=100$ and $k = 0.055$, and
-%     lastly with $k=.4$. Each line represents a separate $\phi_i$,
-%     while the color of each line corresponds to house $i$'s degree in
-%     the corresponding weight matrix.}
-%   \label{fig:prior-var}
-% \end{figure}
+Second, we plot the variance of each $\phi_i$ (i.e. the diagonal of
+the joint covariance matrix) as a function of $\alpha\in(-1, 1)$ in
+Figure \ref{fig:fig3}. This range for $\alpha$ was chosen to ensure
+the precision matrix is invertable (though a wider range for $\alpha$
+is entirely plausible, this is rarely done in practice). We plot each
+$\phi_i$ as a separate line, and color each line according $i$'s
+degree (i.e. $\mat{D}_{ii}$). For the traditional CAR model, notice
+that variance is highest when $\alpha$ approaches both -1 and
+1. Additionally, note that variance does not increase at the same rate
+for all locations, as seen by the amount of line ``crossings.'' Both
+these nonintuitive results are common in CAR models, and have to do
+with the relative number of higher-order interactions
+\cite{Assuncao2009}. However, with both decaying weights matrices,
+variance is strictly monotone increase in $\alpha$, and the number of
+line crossings appear much lower.
+
+In summary, these preliminary results show the decaying weights
+matrices, for the right choice of $k$, can have several potentially
+desirable differences over a traditional binary neighborhood
+matrix. Further inspection of these priors is warranted to better
+understand the effect of different combinations of $\alpha$, $x_0$,
+and $k$.
+
+\begin{figure}
+  \centering
+  \includegraphics[width=.5\linewidth]{fig2}
+  \caption{Correlation between all pairs $(\phi_i, \phi_j)$. For each
+    model, we used $x_0 = 100$ and $\alpha = 0.95$. Pairs farther
+    than 800m were removed.}
+  \label{fig:fig2}
+\end{figure}
+
+\begin{figure}
+  \centering
+  \includegraphics[width=\linewidth]{fig3}
+  \caption{Variance of spatial effect priors as $\alpha$ changes. For
+    all three models, we set cutoff $x_0 = 100$. Each line represents
+    a separate $\phi_i$, while the color of each line corresponds to
+    house $i$'s degree in the corresponding weight matrix. Points with
+    variance greater than $7.5$ were removed.}
+  \label{fig:fig3}
+\end{figure}
 
 \subsection{Posterior Results}
 \label{sec:posterior-results}
+
+In Section \ref{sec:prior-distr-results}, we demonstrated that the
+right choice of decaying weights matrix for the prior $\mat{\phi}$ can
+lead to several potential useful differences compared to a binary
+neighborhood matrix. Of course, what we really care about is whether
+we can estimate a reasonable $\mat{C}(k, x_0, A)$ from the data, and
+if these prior differences carry over to meaningful advantages in the
+posterior.
 
 \todo{One experiment so far. I fitted a decaying weights CAR model to
   the data with just an intercept and spatial random effects, and also
@@ -315,7 +391,7 @@ over to the posterior \cite{Assuncao2009}.
 %   be more correlated than a house with a single, very close neighbor?
 % \end{itemize}
 
-\bibliographystyle{alpha}
+\bibliographystyle{abbrv}
 \bibliography{C:/Users/brendandaisy/Documents/citations/chagas}
 
 \end{document}
