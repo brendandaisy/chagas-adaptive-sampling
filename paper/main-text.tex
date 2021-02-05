@@ -61,7 +61,7 @@ are the notations used in this text.
   i.e. $d_{ii} = \sum{c_{ij}} = k_i$.
 \item [$\alpha$:] A ``spatial strength'' parameter which scales the
   conditional means for each $\phi_i$. The effect of varying $\alpha$
-  is quite muddy and should not be interpreted as overall ``strength''
+  is quite muddy and should not be interpreted as overall magnitude
   of the spatial effects.
 \item [$\tau$:] A spatial precision parameter. 
 \end{itemize}
@@ -395,8 +395,6 @@ spatial parameters. We find several promising features, most
 prominently that $x_0$ has shrunk to strongly indicate a very
 reasonable cutoff radius.
 
-\todo{Add remaining pairs, make a cors plot, and don't discuss figs anymore (you can do this in meeting)}
-
 \begin{figure}
   \centering
   \includegraphics[width=.9\linewidth]{pairs-full}
@@ -405,6 +403,32 @@ reasonable cutoff radius.
     marginal posterior for each parameter, while off diagonal shows
     interactions.}
   \label{fig:pairs-full}
+\end{figure}
+
+\begin{figure}
+  \centering
+\includegraphics[width=.9\linewidth]{pairs-k-fixed}
+  \caption{Posterior pairs plot using the LCAR neighborhood matrix
+    with $k$ fixed to be $0.065$.}
+  \label{fig:pairs-full}
+\end{figure}
+
+\begin{figure}
+  \centering
+\includegraphics[width=.9\linewidth]{pairs-alpha-fixed}
+\caption{Posterior pairs plot using the LCAR neighborhood matrix with
+  $\alpha$ fixed to be $0.999$, so as to closely imitate an ICAR
+  prior.}
+  \label{fig:pairs-full}
+\end{figure}
+
+\begin{figure}
+  \centering
+  \includegraphics[width=\linewidth]{mean-corr-all}
+  \caption{Average correlation by binned distances of 50m. Color
+    indicates the number of infested houses in the pair, while dash
+    type indicates which model was used.}
+  \label{fig:mean-corr-all}
 \end{figure}
 
 % \section{Questions and remaining work}
