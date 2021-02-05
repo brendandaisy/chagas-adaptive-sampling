@@ -260,9 +260,9 @@ matrix with cutoff radius $x_0$ as $k \rightarrow\infty$.
   \centering
   \includegraphics[width=.75\linewidth]{fig1}
   \caption{Left: Eq. \eqref{eq:decay-mat1} with $x_0 = 100$ and
-    $k = 0.065$ (pink), $k = 1$ (red). Right:
-    Eq. \eqref{eq:decay-mat2} with $x_0 = 100$ and $k = 0.5$ (pink),
-    $k = 2$ (red).}
+    $k = 0.065$ (red), $k = 1$ (pink). Right:
+    Eq. \eqref{eq:decay-mat2} with $x_0 = 100$ and $k = 0.5$ (red),
+    $k = 2$ (pink).}
   \label{fig:fig1}
 \end{figure}
 
@@ -375,10 +375,37 @@ we can estimate a reasonable $\mat{C}(k, x_0, A)$ from the data, and
 if these prior differences carry over to meaningful advantages in the
 posterior.
 
-\todo{One experiment so far. I fitted a decaying weights CAR model to
-  the data with just an intercept and spatial random effects, and also
-  with the full model. Fitting the full model was much faster, which I
-  wasn't expecting. Figures soon!!}
+To begin answering these questions, we began by fitting two models
+using a traditional neighborhood matrix and the LCAR matrix from
+Eq. \eqref{eq:decay-mat1}, respectively. For the latter, we use
+uniform priors for $k$ and $x_0$, but with conservative ranges based
+on observations from Section \ref{sec:prior-distr-results}. We make
+this simplifying assumption for now to avoid situations where the
+variance on $\mat{\phi}$ explodes. For all models we obtained 20,000
+posterior draws plus 8,000 warm-up iterations.
+
+\subsubsection{Diagnosing the LCAR Posterior}
+\label{sec:diagn-lcar-post}
+
+We begin by examining the quality and nature of the posterior
+fit. While there was no divergences and the chains mixed well, in all
+the CAR models Stan reports the posterior may not have fully
+converged. Figure \ref{fig:pairs-full} shows a pairs plot for the key
+spatial parameters. We find several promising features, most
+prominently that $x_0$ has shrunk to strongly indicate a very
+reasonable cutoff radius.
+
+\todo{Add remaining pairs, make a cors plot, and don't discuss figs anymore (you can do this in meeting)}
+
+\begin{figure}
+  \centering
+  \includegraphics[width=.9\linewidth]{pairs-full}
+  \caption{Posterior pairs plot using the LCAR neighborhood matrix
+    with both $\alpha$ and $k$ free. The diagonal represents the
+    marginal posterior for each parameter, while off diagonal shows
+    interactions.}
+  \label{fig:pairs-full}
+\end{figure}
 
 % \section{Questions and remaining work}
 % \label{sec:quest-rema-work}

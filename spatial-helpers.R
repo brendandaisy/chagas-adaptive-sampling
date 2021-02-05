@@ -40,6 +40,10 @@ dist_mat_sncar <- function(df, d_low = NULL) {
   dm / d_low
 }
 
+cmat_lcar <- function(dm, x0, k) 1 - my_logistic(dm, x0=x0, k=k)
+
+cmat_ecar <- function(dm, x0, k) ifelse(dm <= (x0 + 1), 1, (dm_comp - x0)^(-k))
+
 knn_mat <- function(dm, k=1) {
   diag(dm) <- max(dm) + 1 # so this def isnt the min
   ret = dm
