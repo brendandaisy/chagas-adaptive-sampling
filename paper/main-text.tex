@@ -160,6 +160,8 @@ parameter; when the data comes in, each $\phi_i$ has its mean adjusted
 to ``fill in'' variation not explained by the covariates, while the
 neighborhood structure favors neighbors to be ``filled in'' similarly.
 
+\todo{smoothing of $r_i$'s is valuable in of itself here because...response measurements are noisy, not all houses have all or accurate covariates, covariates are autocorrelated themselves, ... and we are also interested in the network structure which leads to good smoothing since we know little about dispersal patterns}
+
 % These CAR priors serve as random
 % effects, and can be interpreted as a smoothing parameter between
 % neighbors: absent of stronger signals from $Y$, a house's risk of
@@ -383,6 +385,11 @@ on observations from Section \ref{sec:prior-distr-results}. We make
 this simplifying assumption for now to avoid situations where the
 variance on $\mat{\phi}$ explodes. For all models we obtained 20,000
 posterior draws plus 8,000 warm-up iterations.
+
+\todo{looking at the surface of spatial effects only, or surface of
+  prob that $\phi_i$ is greater than $\bar{mat{\phi}}$, also has use
+  for answering: even if I improve this house significantly, is it
+  still at risk if I fail to improve houses around it?}
 
 \subsubsection{Diagnosing the LCAR Posterior}
 \label{sec:diagn-lcar-post}

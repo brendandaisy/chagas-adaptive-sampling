@@ -1,16 +1,16 @@
-require(magrittr)
 require(rstan)
 require(tidyverse)
-require(bayesplot)
 
 rstan_options(auto_write = TRUE)
-options(mc.cores = parallel::detectCores())
+options(mc.cores = 4)
 source('../spatial-helpers.R')
 source('../covariate-helpers.R')
 
 village <- 'Paternito'
+dat_path <- '../../data-raw/gtm-tp-mf.csv'
+date <- Sys.Date()
 
-dat_org <- read_csv('../../data-raw/gtm-tp-mf.csv') %>%
+dat_org <- read_csv(dat_path) %>%
     filter(village == !!village) %>%
     mutate_at(
         vars(village:land_for_agriculture, sign_animals:infestation),
@@ -35,9 +35,7 @@ dat_model <- list(
     X = cov_mat,
     A = dm,
     tau_a = 2,
-    tau_b = 1,
-    kmin = .03,
-    kmax = .1,
+    tau_b = 2, # gives mode = 2
     x0min = 50,
     x0max = 800
 )
@@ -51,11 +49,7 @@ dc_fit <- stan(
     control = list(adapt_delta = 0.9, max_treedepth = 15)
 )
 
-## saveRDS(dc_fit, 'dcfit-DATE.rds')
-
-### Basic posterior diagnosis
-
-pairs(dc_fit, pars = c('alpha', 'x0', 'k', 'tau', 'phi[1]'))
+saveRDS(dc_fit, paste0('dcfit-', date, '.rds'))
 
 ## mcmc_scatter(glm_full, pars=c('alpha', 'beta[3]'))
 

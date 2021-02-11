@@ -7,8 +7,8 @@ data {
   
   real tau_a;
   real tau_b;
-  real kmin; // max for shape param k
-  real kmax;
+  /* real kmin; // max for shape param k */
+  /* real kmax; */
   real x0min; // max distance for cutoff param x0
   real x0max;
 }
@@ -21,9 +21,9 @@ transformed data {
 parameters {
   vector[N] phi; // spatial effects
   real<lower=0> tau; // precision of spatial effects
-  real<lower=0, upper=.99> alpha; // strength of spatial correlation
+  /* real<lower=0, upper=.99> alpha; // strength of spatial correlation */
   real<lower=x0min, upper=x0max> x0;
-  real<lower=kmin, upper=kmax> k;
+  /* real<lower=kmin, upper=kmax> k; */
   vector[K] beta; // slopes/risks of each cov in GLM
 }
 
@@ -32,13 +32,18 @@ model {
     matrix [N, N] Q; // precision
     matrix [N, N] C; // transformed A
     matrix [N, N] D; // degree of C
-    C = 1 - inv(1 + exp(-k * (A - x0)));
     D = rep_matrix(0, N, N);
     for (i in 1:N) {
-      C[i, i] = 0;
+      for (j in i:N) {
+	if (i == j)
+	  C[i, j] = 0;
+	else
+	  C[i, j] = A[i, j] <= x0 ? 1 : (A[i, j] - x0)^(-2);
+	C[j, i] = C[i, j];
+      }
       D[i, i] = sum(C[i]);
     }
-    Q = tau * (D - alpha * C);
+    Q = tau * (D - .99 * C);
     phi ~ multi_normal_prec(zeros, Q);
   }
   tau ~ gamma(tau_a, tau_b);
