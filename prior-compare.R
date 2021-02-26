@@ -74,8 +74,8 @@ p1 <- tibble(
 
 p2 <- tibble(
     x = c(dm_comp),
-    y1 = c(cmat_ecar(dm_comp, 100, .5)),
-    y2 = c(cmat_ecar(dm_comp, 100, 2))
+    y1 = c(cmat_ecar(dm_comp, 100, .7)),
+    y2 = c(cmat_ecar(dm_comp, 100, 2.2))
 ) %>%
     ggplot(aes(x, y1), size = 1.1) +
     geom_line(aes(y = y2), col = 'lightpink') +
@@ -189,6 +189,21 @@ ggsave('fig3.pdf', width = 7.7, height = 5.2)
 bind_rows(tcar_var, lcar_var, ecar_var) %>%
     filter(var >= 7.5) %>%
     count(g)
+
+
+var_grid <- expand.grid(a = seq(-.9, .9, .1), x0 = seq(50, 300, length.out = 20)) %>%
+    pmap_dfr(~{
+        tibble_row(
+            v = prec2var(prec_lcar(.x, .9, .y))[1, 2],
+            alpha = .x,
+            x0 = .y
+        )
+    })
+
+ggplot(filter(var_grid, x0 < 120), aes(x = x0, y = alpha, fill = log(v$var))) +
+    geom_tile()
+
+### Old stuff
 
 samp2 <- alphas %>%
     map_dfr(~{
