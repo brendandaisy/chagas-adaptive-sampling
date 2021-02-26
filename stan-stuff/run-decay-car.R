@@ -1,4 +1,5 @@
 require(rstan)
+require(stringr)
 
 rstan_options(auto_write = TRUE)
 options(mc.cores = 4)
@@ -17,4 +18,4 @@ dc_fit <- stan(
     control = list(adapt_delta = 0.95, max_treedepth = 15)
 )
 
-saveRDS(dc_fit, paste0('decay-car', date, '.rds'))
+saveRDS(dc_fit, paste0(str_remove(args[1], '.rds'), '_', date, '.rds'))
