@@ -109,7 +109,13 @@ rand_dens <- function(df, m, neigh = 100, alpha = 1) {
     sample(seq_len(nrow(df)), m, prob = w^alpha / sum(w^alpha))
 }
 
-convex_comb <- function(unobs_idx, fit, t, alpha = 0.5) {
+##' Selection based on combination of risk and predictor variance
+##'
+##' @title comb_risk_var
+##' @param t Adaptive sampling iteration
+##' @param alpha Shape of tradeoff; alpha < 1 prioritizes risk sooner
+##' @return Indices corresp. to rows in data
+comb_risk_var <- function(unobs_idx, fit, t, alpha = 0.5) {
     eta <- fit$summary.linear.predictor[unobs_idx,]
     risk <- fit$summary.fitted.values[unobs_idx,]$mean
     eta_var <- eta$sd^2
@@ -117,7 +123,6 @@ convex_comb <- function(unobs_idx, fit, t, alpha = 0.5) {
     eta_var <- (eta_var - mean(eta_var)) / sd(eta_var)
     score <- t^alpha * risk + (1 - t^alpha) * eta_var
     names(score) <- rownames(eta)
-    score <- (score - min(score)) # shift so that p(min score) = 0
     as.double(
         str_extract(names(sort(score, decreasing = TRUE)), '\\d+')[1:3]
     )

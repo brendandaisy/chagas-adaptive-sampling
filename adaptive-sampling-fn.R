@@ -16,7 +16,7 @@ bs_perf <- function(df, strat, n_init = 10, n_rep = 10,
     map_dfr(1:n_rep, ~{
         if (!silent)
             print(paste0('Sample ', .x, '/', n_rep))
-        is <- iterative_sampling(df, strat, n_init, pred, args = dots)
+        is <- sampling_design(df, strat, n_init, pred, args = dots)
         mutate(is_score(is, df$truth, n_init, strat), rep = .x)
     })
 }
@@ -31,6 +31,8 @@ is_score <- function(is, tru_inf, n_init, strat) {
             is$fit[[ii]],
             is$obs_idx[[ii]],
             tru_inf,
+            ## set thresh to 0 since not using
+            thresh = 0,
             in_samp = FALSE
         )
         tibble_row(
@@ -70,7 +72,7 @@ fit_score <- function(fit, obs_idx, tru_inf, thresh = NULL, in_samp = FALSE) {
     ## make the predictions for accuracy targets
     pred <- map_dbl(
         fit$summary.fitted.values$mean[idx],
-        ~ifelse(.x >= sum(tru_inf[idx]) / length(tru_inf[idx]), 1, 0)
+        ~ifelse(.x >= thresh, 1, 0)
     )
     ## prediction accuracy metrics:
     bool <- bool_stats(table(factor(pred, c(0, 1)), tru_inf[idx]))
@@ -106,46 +108,23 @@ bool_stats <- function(conf_mat) {
     )
 }
 
-##' Workhorse function for adaptive and random algorithms
+##' Wrapper function for adaptive and random algorithms
 ##'
-##' @title iterative_sampling
+##' @title sampling_design
 ##' @param args A named list to pass to sampling strat
-sampling_design <- function(df, strat = 'rand_unif', n_init = ceiling(0.25 * nrow(df)),
+sampling_design <- function(df, strat = 'rand_unif', n_init = 10,
                                pred = c('global', 'known', 'interp', 'latent'),
                                silent = TRUE, args = NULL) {
     if (str_detect(strat, 'rand'))
         return(random_sampling(df, strat, n_init, pred, args))
     adaptive_sampling(df, strat, n_init, pred, args)
-    ## ntot <- nrow(df)
-    ## niter <- ceiling((.75 * ntot - n_init) / 3)
-    ## ini <- sample(ntot, n_init)
-    ## mesh <- inla_mesh(df)
-    ## df$infestation[-ini] <- NA
-    ## map_dfr(1:niter, ~{
-    ##     if (!silent)
-    ##         print(paste0('Begin iteration ', .x, '/', niter))
-    ##     if (strat == 'convex_comb')
-    ##         args <- c(t = (.x - 1) / (niter - 1), args)
-    ##     obs <- which(!is.na(df$infestation))
-    ##     fd <- build_pred_dat(df, obs, pred)
-    ##     ivars <- list(character(0))
-    ##     if (pred == 'interp')
-    ##         ivars <- list(colnames(select(fd, -c(id:village, dist_perim:truth))))
-    ##     ft <- fit_gp(df = fd, mesh = mesh)
-    ##     if (is.null(args))
-    ##         sel <- do.call(strat, splice(which(is.na(df$infestation)), ft))
-    ##     else
-    ##         sel <- do.call(strat, splice(which(is.na(df$infestation)), ft, args))
-    ##     df$infestation[sel] <<- df$truth[sel]
-    ##     tibble_row(fit = ft, obs_idx = list(obs), sel = list(sel), ivars = ivars)
-    ## })
 }
 
 adaptive_sampling <- function(df, strat, n_init, pred, args) {
     ntot <- nrow(df)
     niter <- ceiling((.75 * ntot - n_init) / 3)
     ini <- sample(ntot, n_init)
-    mesh <- inla_mesh(dat_sub)
+    mesh <- inla_mesh(df)
     spde <- inla.spde2.pcmatern(
         mesh = mesh,
         alpha = 2,
@@ -154,7 +133,7 @@ adaptive_sampling <- function(df, strat, n_init, pred, args) {
     )
     df$infestation[-ini] <- NA
     map_dfr(1:niter, ~{
-        if (strat == 'convex_comb')
+        if (str_detect(strat, 'comb'))
             args <- c(t = (.x - 1) / (niter - 1), args)
         obs <- which(!is.na(df$infestation))
         fit_dat <- build_pred_dat(df, obs, pred)
@@ -200,37 +179,14 @@ build_pred_dat <- function(df, obs_idx, pred_type) { # df NOT dummy coded
         df_ret <- select(df, id:village, dist_perim:truth)
     else if (pred_type == 'latent')
         return(select(df, id:village, infestation:truth)) # don't rescale anything
-    else {
-        df_ret <- update_pred(df, elim_low_count(df, obs_idx)) %>%
-            update_pred(elim_single_lvl(., obs_idx)) %>%
-            update_pred(elim_nonspatial(., obs_idx)) %>%
-            update_pred(elim_single_lvl(., obs_idx))
-            
-        ## df_dum <- dummify_vars(df)
-        ## interp <- interp_preds(df_dum, obs_idx)
-        ## idisc <- select(interp, contains('.'))
-        ## icont <- select(interp, !contains('.'))
-        
-        ## unobs <- bind_cols(
-        ##     select(df, id:village)[-obs_idx,],
-        ##     if (ncol(idisc) > 0) adj_krige_probs(idisc) else NULL,
-        ##     if (ncol(icont) > 0) icont else NULL,
-        ##     select(df, dist_perim:truth)[-obs_idx,]
-        ## )
-
-        ## if (ncol(idisc) > 0)
-        ##     unobs <- undummify(unobs)
-        ## df_ret <- select(df, colnames(unobs))
-        ## df_ret[-obs_idx,] <- unobs
-    }
     return(rescale_cont_vars(df_ret))
 }
 
-dat_org <- prep_model_data('../data-raw/gtm-tp-mf.rds')
-dat_sub <- filter(dat_org, village == 'Paternito')
+## dat_org <- prep_model_data('../data-raw/gtm-tp-mf.rds')
+## dat_sub <- filter(dat_org, village == 'Paternito')
 
-is <- sampling_design(dat_sub, 'convex_comb', n_init = 10, pred = 'global', silent = FALSE)
-is_score(is, dat_sub$truth, 10, 'convex_comb')
+## is <- sampling_design(dat_sub, 'convex_comb', n_init = 10, pred = 'global', silent = FALSE)
+## is_score(is, dat_sub$truth, 10, 'convex_comb')
 
 ## ft1 <- fit_old(dat_sub)
 ## ft2 <- fit_gp(dat_sub, mesh, spde)
