@@ -3,9 +3,14 @@
 ## or a tidygraph of neighbors
 ###
 
+require(rgdal)
+require(sf)
+require(geosphere)
+require(tidygraph)
+
+### Distance/precision matrix stuff
+
 dist_mat <- function(df, normalize=FALSE, cutoff=NULL) {
-  require(geosphere)
-  
   dm <- df %>%
     select(long, lat) %>%
     distm()
@@ -23,8 +28,6 @@ dist_mat <- function(df, normalize=FALSE, cutoff=NULL) {
 }
 
 dist_mat_sncar <- function(df, d_low = NULL) {
-  require(geosphere)
-  
   dm <- df %>%
     select(long, lat) %>%
     distm()
@@ -40,9 +43,51 @@ dist_mat_sncar <- function(df, d_low = NULL) {
   dm / d_low
 }
 
-cmat_lcar <- function(dm, x0, k) 1 - my_logistic(dm, x0=x0, k=k)
+cmat_tcar <- function(dm, x0) {
+    dm[dm <= x0] <- 1
+    dm[dm > x0] <- 0
+    diag(dm) <- 0
+    dm
+}
+
+cmat_lcar <- function(dm, x0, k, dmax = 350) {
+    ret <- 1 - my_logistic(dm, x0=x0, k=k)
+    diag(ret) <- 0
+    ret[dm > dmax] <- 0
+    ret
+}
 
 cmat_ecar <- function(dm, x0, k) ifelse(dm <= (x0 + 1), 1, (dm_comp - x0)^(-k))
+
+prec2var <- function(prec_mat) {
+    diag(solve(prec_mat)) %>%
+        enframe('id', 'var')
+}
+
+### Spatial objects helpers
+
+sp_project <- function(tbl, normalize = FALSE) {
+    dfsp <- as.data.frame(tbl)
+    sp::coordinates(dfsp) <- ~long+lat
+    proj4string(dfsp) <- CRS("+proj=longlat")
+    ret <- spTransform(dfsp, CRS("+proj=utm +zone=16 +datum=WGS84"))
+    if (normalize) {
+        dm <- dist_mat(tbl)
+        wh <- which(dm == max(dm), arr.ind = TRUE)
+        p1 <- coordinates(ret)[wh[1, 1],]
+        p2 <- coordinates(ret)[wh[2, 1],]
+        norm <- sqrt((p1[1]-p2[1])^2 + (p1[2]-p2[2])^2)
+        ret <- SpatialPointsDataFrame(coordinates(ret) / norm, ret@data)
+    }
+    return(ret)
+}
+
+jitter_data <- function(tbl) {
+    proj <- sp_project(tbl)
+    SpatialPointsDataFrame(jitter(coordinates(proj), factor = 0.05), proj@data)
+}
+
+### Network and tidygraph helpers
 
 knn_mat <- function(dm, k=1) {
   diag(dm) <- max(dm) + 1 # so this def isnt the min

@@ -7,7 +7,7 @@ require(MASS, exclude=c('select'))
 require(corrr)
 require(tikzDevice)
 
-source('../spatial-helpers.R')
+source('spatial-helpers.R')
 
 tikz_plot <- function(ggp, fname = 'tikz', w = 8.5, h = 4) {
     tikz(paste0(fname, '.tex'), standAlone=TRUE, width = w, height = h)
@@ -16,13 +16,17 @@ tikz_plot <- function(ggp, fname = 'tikz', w = 8.5, h = 4) {
     system(paste0('pdflatex ', fname, '.tex'))
 }
 
-prec_tcar <- function(alpha, x0, tau = 1) {
-    C <- dist_mat(sDT, cutoff = x0)
+prec_tcar <- function(dm, alpha, x0, tau = 1) {
+    C <- cmat_tcar(dm, x0)
     tau * (diag(rowSums(C)) - alpha * C)
 }
 
-prec_lcar <- function(alpha, k, x0, tau = 1) {
-    C <- cmat_lcar(dm_comp, x0, k)
+prec_lcar <- function(dm, alpha, k, x0, tau = 1, dmax = 350) {
+    ## C <- cmat_lcar(dm_comp, x0, k)
+    ## C[dm_comp >= 250] <- 0
+    C <- 1 - 1 / (1 + exp(-k * (dm - x0)))
+    diag(C) <- 0
+    C[dm >= dmax] <- 0
     tau * (diag(rowSums(C)) - alpha * C)
 }
 
@@ -38,16 +42,11 @@ cor_pairs <- function(prec_mat) {
         stretch(na.rm = TRUE)
 }
 
-prec2var <- function(prec_mat) {
-    diag(solve(prec_mat)) %>%
-        enframe('id', 'var')
-}
-
 ### Setup the data
 
 village <- 'Paternito'
 
-DT <- read_csv('../../data-raw/gtm-tp-mf.csv') %>%
+DT <- read_csv('../data-raw/gtm-tp-mf.csv') %>%
     filter(village == !!village) %>%
     select(id:long, infestation)
 
@@ -60,21 +59,19 @@ dm_comp <- dist_mat(sDT) # dist_mat for LCAR/ECAR
 
 p1 <- tibble(
     x = c(dm_comp),
-    y1 = c(cmat_lcar(dm_comp, 100, .065)),
-    y2 = c(cmat_lcar(dm_comp, 100, 1))
+    y1 = c(cmat_lcar(dm_comp, 300, .5, 300)),
+    y2 = c(cmat_lcar(dm_comp, 400, .065, 400))
 ) %>%
     ggplot(aes(x, y1), size = 1.1) +
-    geom_line(aes(y = y2), col = 'lightpink') +
-    ## geom_point(aes(y = y2), col = 'lightpink') +
     geom_line(col = 'tomato2') +
-    ## geom_point(col = 'tomato2') +
-    xlim(0, 350) +
+    geom_line(aes(y = y2), col = 'lightpink') +
+    xlim(0, 800) +
     xlab(NULL) + ylab(NULL) +
     theme_few()
 
 p2 <- tibble(
     x = c(dm_comp),
-    y1 = c(cmat_ecar(dm_comp, 100, .7)),
+    y1 = c(cmat_ecar(dm_comp, 100, .1)),
     y2 = c(cmat_ecar(dm_comp, 100, 2.2))
 ) %>%
     ggplot(aes(x, y1), size = 1.1) +
@@ -202,6 +199,26 @@ var_grid <- expand.grid(a = seq(-.9, .9, .1), x0 = seq(50, 300, length.out = 20)
 
 ggplot(filter(var_grid, x0 < 120), aes(x = x0, y = alpha, fill = log(v$var))) +
     geom_tile()
+
+### How identifiable is the prior covariance matrix?
+
+up_tri <- upper.tri(dm_comp)
+
+tibble(
+    x = c(dm_comp),
+    y1 = c(solve(prec_lcar(dm_comp, .95, .065, 50))),
+    ## y1 = c(solve(prec_tcar(dm_comp, .95, 300))),
+    y2 = c(solve(prec_lcar(dm_comp, .95, .065, 50, dmax = 500)))
+) %>%
+    ggplot(aes(x, log(y1 + 1)), size = 1.1) +
+    geom_line(col = 'tomato2') +
+    geom_line(aes(y = log(y2 + 1)), col = 'lightblue') +
+    ## geom_point(aes(y = y2), col = 'lightpink') +
+    ## geom_point(col = 'tomato2') +
+    ## geom_hline(yintercept = 0, col = 'grey70') +
+    xlim(0, 300) +
+    xlab(NULL) + ylab(NULL) +
+    theme_few()
 
 ### Old stuff
 
@@ -331,12 +348,3 @@ p3 <- cormat1 %>%
     theme_minimal()
 
 grid.arrange(p1, p2)
-
-### choose a few houses to inspect in detail for posterior comparison
-
-## find the current 1 neighbor houses
-p <- which(rowSums(sub_dist_mat) == 1)
-dat_org %>%
-    mutate(col = id %in% names(p)) %>%
-    ggplot(aes(long, lat, col = col, label = str_remove(id, paste0('_', village)))) +
-    geom_text(size=2.5)

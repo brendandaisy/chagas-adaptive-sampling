@@ -3,23 +3,102 @@
 ## dummy matrix format
 ###
 
-## wrapper to get cov matrix with consistent reference levels
-## if as_tibble true, will keep geospatial identifiers and infestation status
-## TODO: maybe center and scale continuous covariates?
-make_dummy_mat <- function(df_org, as_tibble=FALSE, contr='contr.bayes') {
-    require(tidyverse)
+require(caret)
+require(tidyverse)
+
+prep_model_data <- function(rds_path) {
+    df <- readRDS(rds_path) %>%
+        select(-c(education_level, ownership, num_cats)) %>% # waste of time
+        mutate_at(
+            vars(village:land_for_agriculture, sign_animals:windows_in_bedroom),
+            ~as_factor(str_replace_all(.x, ' ', '_'))
+        )
+    
+    levels(df$house_age) <- c('2_to_6', '7_or_more', 'one_or_less')
+    df$truth <- df$infestation
+    return(df)
+}
+
+dummify_vars <- function(df_full) {
+    disc <- df_full %>%
+        select(-c(id:village) & where(is.factor)) %>%
+        modify_if(~any(levels(.x) == 'Other'), fct_relevel, 'Other')
+    
+    dv <- dummyVars(
+        ~ .,
+        disc,
+        sep = '.',
+        fullRank = TRUE
+    )
+    ## only return vars nec. for kriging:
+    bind_cols(
+        select(df_full, long, lat),
+        as_tibble(predict(dv, newdata = disc), .name_repair = 'minimal'),
+        select(df_full, contains('num_'))
+    )
+}
+
+undummify <- function(df_ltfr) {
+    df_ltfr %>%
+        pivot_longer(contains('.')) %>%
+        separate(name, into = c('f', 'l'), sep = '\\.') %>%
+        filter(value == 1) %>%
+        pivot_wider(!c(f, l, value), names_from = f, values_from = l) %>%
+        relocate(infestation, truth, .after = last_col()) # need at end for make_formula
+}
+
+rescale_cont_vars <- function(df) {
+    df_cont <- select(df, contains('num_'), dist_perim, density)
+    df_oth <- select(df, !c(contains('num_'), dist_perim, density))
+
+    bind_cols(
+        df_oth,
+        predict(
+            suppressWarnings(
+                preProcess(
+                    df_cont,
+                    method = c('center', 'scale')
+                )
+            ),
+            newdata = df_cont
+        )
+    ) %>%
+        ## put before inf for make_formula
+        relocate(contains('num_'), dist_perim, density, .before = infestation)
+}
+
+make_dummy_mat <- function(df_org, as_tibble=FALSE, contr='contr.bayes',
+                           rescale = TRUE, inter = TRUE, trim = FALSE) {
+    ## wrapper to get cov matrix with consistent reference levels
+    ## if as_tibble true, will keep geospatial identifiers and infestation status
     require(bayestestR)
-    require(caret)
 
     ## make sure contrasts are correctly set
     options(contrasts = c(contr, 'contr.poly'))
+
+    df_trim <- df_org[ ,-c(1:4)]
+    if (trim) {
+        df_trim <- df_trim %>%
+            select_if(~ length(unique(.x)) > 1)
+    }
     
-    dat_disc <- df_org %>%
-        select(bed_hygiene:infestation) %>%
-        select(-c(num_humans:num_pigs)) # both pigs and cats had enough var to be cont
+    dat_disc <- df_trim %>%
+        select_if(is.factor) %>%
+        mutate(infestation = df_org$infestation)
     
-    dat_cont <- df_org %>%
-        select(num_humans:num_pigs)
+    dat_cont <- df_trim %>%
+        select(-infestation) %>%
+        select_if(is.double)
+
+    if (rescale) {
+        dat_cont <- predict(
+            preProcess(
+                dat_cont,
+                method = c('center', 'scale')
+            ),
+            newdata = dat_cont
+        )
+    }
     
     ## relevel/collapse each factor to remove any low level counts
     dat_disc$bed_hygiene <- dat_disc$bed_hygiene %>%
@@ -60,9 +139,8 @@ make_dummy_mat <- function(df_org, as_tibble=FALSE, contr='contr.bayes') {
     dat_disc$house_hygiene <- dat_disc$house_hygiene %>%
         relevel('buena')
     
-    ## TODO: for now, try add'l lumping?
     dat_disc$kitchen_location <- dat_disc$kitchen_location %>%
-        fct_collapse(shared=c('no tiene', 'cocina compartida'))
+        relevel('shared_none')
     
     dat_disc$land_for_agriculture <- dat_disc$land_for_agriculture %>%
         relevel('no')
@@ -91,9 +169,11 @@ make_dummy_mat <- function(df_org, as_tibble=FALSE, contr='contr.bayes') {
     dat_disc$condition_bedroom_wall <- dat_disc$condition_bedroom_wall %>%
         relevel('buen estado')
 
-    m_orth <- model.matrix(infestation ~ ., data=dat_disc)
-    cov_matrix <- cbind(m_orth, as.matrix(dat_cont))
-    colnames(cov_matrix)[1] <- 'inter'
+    m_orth <- model.matrix(infestation ~ . - 1, data=dat_disc)[,-1]
+    if (inter)
+        cov_matrix <- cbind(inter = 1, m_orth, as.matrix(dat_cont))
+    else
+        cov_matrix <- cbind(m_orth, as.matrix(dat_cont))
     
     if (as_tibble) {
         cov_matrix %<>%
