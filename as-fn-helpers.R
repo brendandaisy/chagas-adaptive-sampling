@@ -32,46 +32,42 @@ rand_inhib <- function(df, m, neigh = 50) {
     return(c(sel, rand))
 }
 
-rand_pair <- function(df, m, neigh, npair) {
+rand_pair <- function(df, m, neigh = c(100, 50), npair = m %/% 2 - 10) {
     idx <- seq_len(nrow(df))
     dm <- dist_mat(df)
-    diag(dm) <- Inf
     sel <- sample(idx, m - npair)
     rem <- idx[which(!idx %in% sel)]
     for(i in seq_along(sel)) {
-        while(any(dm[sel[i], sel[-i]] < neigh)) {
+        while(any(dm[sel[i], sel[-i]] < neigh[1])) {
             if (sum(rem) == 0) {
                 sel[i] <- 0
                 npair <- npair + 1
                 break
             }
-            new <- sample(rem[rem != 0], 1)
+            new <- sample_vec(rem[rem != 0], 1)
             rem[rem == new] <- 0
             sel[i] <- new
         }
     }
     sel <- sel[sel != 0]
-    print(sel)
-    pair_cand <- map_dbl(sel, ~if (min(dm[.x,]) < neigh) .x else 0)
-    ## pair_cand <- sel[which(min(dm[sel,]) < neigh)]
-    pair <- double(min(npair, length(pair_cand[pair_cand != 0])))
-    for (p in seq_along(pair)) {
-        cand <- sample(pair_cand[pair_cand != 0], 1)
+    pair_cand <- sel
+    pair <- double(npair)
+    p <- 1
+    while(sum(pair_cand) > 0 & p <= length(pair)) {
+        cand <- sample_vec(pair_cand[pair_cand != 0], 1)
         pair_cand[pair_cand == cand] <- 0
-        nbs <- which(dm[cand,] < neigh & !(dm[cand,] %in% pair))
-        pair[p] <- sample(nbs, 1)
+        nbs <- which(dm[cand, -cand] < neigh[2])
+        nbs <- nbs[which(!nbs %in% pair)]
+        if (length(nbs) > 0) {
+            pair[p] <- sample_vec(nbs, 1)
+            p <- p + 1
+        } # otherwise, all of cand's neighbors already used and it is no longer a cand
     }
-    ## pair <- sample(pair_cand[pair_cand != 0], min(npair, length(pair_cand)))
-    ## for (b in pair) {
-    ##     print(idx[which(dm[b,] < neigh)])
-    ##     pair[b] <- sample(idx[which(dm[b,] < neigh)], 1)
-    ## }
-    return(c(sel, pair))
-    ## xtra <- c()
-    ## if (length(pair) < npair)
-    ##     xtra <- sample(idx[which(!idx %in% c(sel, pair))], npair - length(pair))
-    ## print(idx[which(!idx %in% c(sel, pair))])
-    ## return(c(sel, pair, xtra))
+    sel <- c(sel, pair[pair != 0])
+    xtra <- c()
+    if (length(sel) < m)
+        xtra <- sample_vec(idx[which(!idx %in% sel)], m - length(sel))
+    return(c(sel, xtra))
 }
 
 rand_icp <- function(df, m, neigh = 100, nclo = m %/% 3, alpha = 2) {
@@ -299,6 +295,9 @@ unobs_list <- function(boot_df, village) {
     obs <- filter(boot_df, village == str_to_lower(str_sub(village, end = 3)))$obs
     map(obs, ~df$id[-.x])
 }
+
+## safer sample for vectors of len 1
+sample_vec <- function(x, ...) x[sample.int(length(x), ...)]
 
 ### Plotting--------------------------------------------------------------------
 

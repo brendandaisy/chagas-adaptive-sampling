@@ -2,10 +2,10 @@ source('adaptive-sampling-fn.R')
 source('as-fn-helpers.R')
 
 NREP <- 15
-FUN <- 'comb_risk_var'
+FUN <- 'rand_pair'
 PRED <- 'known'
 SEED <- 1233 # not used by rand methods
-RDS <- 'combriskvarpt5-known'
+RDS <- 'rpair-known'
 
 dat_org <- prep_model_data('../data-raw/gtm-tp-mf.rds')
 

@@ -18,12 +18,12 @@ plot_sel <- function(df, r) {
         theme_bw()
 }
 
-dat_sub <- filter(dat_org, village == 'Paternito')
+dat_sub <- filter(dat_org, village == 'Cerrón')
 set.seed(124)
 
 r <- rand_inhib(dat_sub, m = ceiling(.25 * nrow(dat_sub)), neigh = 50)
 r <- rand_icp(dat_sub, m = ceiling(.25 * nrow(dat_sub)), neigh = 100)
-r <- rand_pair(dat_sub, 60, 120, 30)
+r <- rand_pair(dat_sub, ceiling(.75 * nrow(dat_sub)))
 plot_sel(dat_sub, r)
 
 ## prob of weighted selection for all houses
