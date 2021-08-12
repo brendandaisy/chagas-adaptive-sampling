@@ -43,14 +43,35 @@ mwu_test <- function(res_df, target, ref = 'runif-global') {
 }
 
 results <- read_boot(
-    str_c(
-        c('runif', 'convexpt75', 'var'),
-        ## c('runif', 'var'),
-        'global',
-        sep = '-'
-    )
-) %>%
-    mutate(nauc = auc - prop)
+    c('runif-global-pt05', 'riskvarpt2-global', 'runif-known-pt05')
+      ## str_c(
+        ## c('runif', 'convexpt75', 'var'),
+        ## c('riskvarpt5', 'risk', 'runif', 'riskvarpt2'),
+      ##   'global',
+      ##   sep = '-'
+      ## )
+)
+
+res_summ <- results %>%
+    mutate(
+        pred = ifelse(str_detect(method, 'known'), 'known', 'global'),
+        method = str_extract(method, '\\w+')
+    ) %>%
+    group_by(method, pred, village) %>%
+    summarize(x = mean(m / n), y = mean(act_pct))
+
+results %>%
+    mutate(
+        pred = ifelse(str_detect(method, 'known'), 'known', 'global'),
+        method = str_extract(method, '\\w+')
+    ) %>%
+    ggplot(aes(m / n, act_pct, col = interaction(method, pred))) +
+    geom_hline(yintercept = 0.05, col = 'grey70', linetype = 'dashed', alpha = .7) +
+    geom_jitter(size = 1.2, alpha = 0.3) +
+    geom_point(aes(x, y), data = res_summ, size = 3) +
+    facet_wrap(~village, scales = 'free_y') +
+    xlim(0, 1) +
+    theme_bw()
 
 mwu <- bind_rows(
     mwu_test(results, 'nauc'),
@@ -67,30 +88,6 @@ mwu %>%
     facet_wrap(~method, nrow = 3)
 
 results %>%
-    ggplot(
-        aes(
-            x = as.factor(size),
-            y = sens,
-            fill = method
-            ## group = interaction(method, Metric, as.factor(size))
-        )
-    ) +
-    geom_boxplot() +
-    facet_wrap(~village) +
-    ## scale_fill_manual(
-    ##     values = c(random_known = 'white', entropy_known = 'grey80', kld_unknown = 'grey60', kld_rand_only = 'grey40')
-    ## ) +
-    labs(x = 'Pct. Observed', y = 'Score', shape = 'Method')
-
-res_summ <- results %>%
-    mutate(
-        ## model = ifelse(str_detect(method, 'gp|interp'), 'Interp.', 'Lat. only'),
-        method = str_extract(method, '\\w+')
-    ) %>%
-    group_by(method, size, village) %>%
-    summarize(x = mean(var), y = mean(disc))
-
-results %>%
     mutate(
         method = str_extract(method, '\\w+')
     ) %>%
@@ -104,9 +101,4 @@ results %>%
     ## xlim(0, 1) +
     ## ylim(0, 1)
 
-unobs <- filter(results, method == 'rconvex1-global', size == .75, nauc < .1) %>%
-    unobs_list('Guayabo')
 
-count(tibble(id = unlist(unobs)), id, sort = TRUE) %>%
-    mutate(inf = map_dbl(id, ~pull(filter(dat_org, id == .x), 'infestation'))) %>%
-    filter(inf == 1)

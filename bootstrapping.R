@@ -2,10 +2,11 @@ source('adaptive-sampling-fn.R')
 source('as-fn-helpers.R')
 
 NREP <- 15
-FUN <- 'rand_pair'
+FUN <- 'rand_unif'
 PRED <- 'known'
-SEED <- 1233 # not used by rand methods
-RDS <- 'rpair-known'
+THRESH <- 0.05
+CONF <- 0.9
+RDS <- 'runif-known-pt05'
 
 dat_org <- prep_model_data('../data-raw/gtm-tp-mf.rds')
 
@@ -14,7 +15,8 @@ bs_perf_pat <- bs_perf(
     FUN,
     n_rep = NREP,
     pred = PRED,
-    seed = SEED,
+    tar_thresh = THRESH,
+    conf_lvl = CONF,
     silent = FALSE
 )
 
@@ -25,7 +27,8 @@ bs_perf_gua <- bs_perf(
     FUN,
     n_rep = NREP,
     pred = PRED,
-    seed = SEED,
+    tar_thresh = THRESH,
+    conf_lvl = CONF,
     silent = FALSE
 )
 
@@ -36,7 +39,8 @@ bs_perf_pre <- bs_perf(
     FUN,
     n_rep = NREP,
     pred = PRED,
-    seed = SEED,
+    tar_thresh = THRESH,
+    conf_lvl = CONF,
     silent = FALSE
 )
 
@@ -47,7 +51,8 @@ bs_perf_cer <- bs_perf(
     FUN,
     n_rep = NREP,
     pred = PRED,
-    seed = SEED,
+    tar_thresh = THRESH,
+    conf_lvl = CONF,
     silent = FALSE
 )
 
@@ -58,7 +63,8 @@ bs_perf_ama <- bs_perf(
     FUN,
     n_rep = NREP,
     pred = PRED,
-    seed = SEED,
+    tar_thresh = THRESH,
+    conf_lvl = CONF,
     silent = FALSE
 )
 

@@ -1,129 +1,73 @@
 require(tidyverse)
 require(INLA)
-require(MASS, exclude = 'select')
-require(spdep)
-require(gstat)
-require(precrec)
+require(furrr)
+## require(MASS, exclude = 'select')
+## require(spdep)
+## require(gstat)
+## require(precrec)
 
 source('spatial-helpers.R')
 source('covariate-helpers.R')
 source('as-fn-helpers.R')
 
+bigg_bs <- function(df, alphas, n_init = 10, n_rep = 10,
+                    pred = c('global', 'known', 'interp', 'latent'),
+                    tar_thresh = 0.05, conf_lvl = 0.95, silent = FALSE) {
+    future_map_dfr(1:n_rep, ~{
+        ## if (!silent)
+        ##     print(paste0('Sample ', .x, '/', n_rep))
+        init <- sample(1:nrow(df), n_init)
+        args <- c(list(NULL), map(alphas, ~list(alpha = .x)))
+        des <- map(
+            args,
+            ~sampling_design(df, init, pred, tar_thresh, conf_lvl, strat_arg = .x)
+        )
+        map_dfr(des, ~des_score(.x, df$truth)) %>%
+            mutate(thresh = tar_thresh, init = list(init), alpha = c(NA, alphas))
+    }, .options = furrr_options(seed = TRUE), .progress = TRUE)
+}
+
 bs_perf <- function(df, strat, n_init = 10, n_rep = 10,
                     pred = c('global', 'known', 'interp', 'latent'),
+                    tar_thresh = 0.05, conf_lvl = 0.95,
                     seed = TRUE, silent = TRUE, ...) {
     dots <- list(...) # gather dots so map not confused
     map_dfr(1:n_rep, ~{
         if (!silent)
             print(paste0('Sample ', .x, '/', n_rep))
-        is <- sampling_design(df, strat, n_init, pred, args = dots)
-        mutate(is_score(is, df$truth, n_init, strat), rep = .x)
-    })
-}
-
-is_score <- function(is, tru_inf, n_init, strat) {
-    imap_dfr(c(.25, .5, .75), ~{ # score at 3 points in run
-        if (str_detect(strat, 'rand'))
-            ii <- .y
-        else
-            ii <- ceiling((.x * length(tru_inf) - n_init) / 3)
-        ooss <- fit_score(
-            is$fit[[ii]],
-            is$obs_idx[[ii]],
-            tru_inf,
-            ## set thresh to 0 since not using
-            thresh = 0,
-            in_samp = FALSE
+        des <- sampling_design(
+            df, strat, n_init,
+            pred, tar_thresh, conf_lvl,
+            strat_arg = dots
         )
-        tibble_row(
-            !!!ooss,
-            size = .x,
-            obs = list(is$obs_idx[[ii]])
-        )
+        mutate(des_score(des, df$truth), thresh = tar_thresh, conf = conf_lvl)
     })
 }
 
-find_best_thresh <- function(fit, obs_idx, tru_inf) {
-    obs_inf <- factor(tru_inf[obs_idx], c(0, 1))
-    obs_prob <- fit$summary.fitted.values$mean[obs_idx]
-    folds <- createMultiFolds(obs_inf, k = 4, times = 10)
-    cv_thresh <- map_dbl(folds, cv_best_thresh, y = obs_inf, p = obs_prob)
-    mean(cv_thresh)
-}
-
-cv_best_thresh <- function(fold_idx, y, p) {
-    y_fold <- y[fold_idx]
-    p_fold <- p[fold_idx]
-    scores <- map_dfr(seq(.05, .95, .025), ~{
-        pred <- factor(ifelse(p_fold >= .x, 1, 0), c(0, 1))
-        tibble_row(!!!bool_stats(table(pred, y_fold)), thresh = .x)
-    })
-    qacc <- quantile(scores$bacc, .9)
-    return(arrange(filter(scores, bacc >= qacc), desc(sens))$thresh[1])
-}
-
-fit_score <- function(fit, obs_idx, tru_inf, thresh = NULL, in_samp = FALSE) {
-    if (in_samp)
-        idx <- obs_idx
-    else
-        idx <- -obs_idx
-    if (is.null(thresh))
-        thresh <- find_best_thresh(fit, obs_idx, tru_inf)
-    ## make the predictions for accuracy targets
-    pred <- map_dbl(
-        fit$summary.fitted.values$mean[idx],
-        ~ifelse(.x >= thresh, 1, 0)
-    )
-    ## prediction accuracy metrics:
-    bool <- bool_stats(table(factor(pred, c(0, 1)), tru_inf[idx]))
-    ## precision-recall AUC:
-    prc <- evalmod(
-        mode = 'rocprc',
-        scores = fit$summary.fitted.values$mean[idx],
-        labels = tru_inf[idx]
-    )
-    auc <- attr(prc$prcs[[1]], 'auc')
-    roc <- attr(prc$rocs[[1]], 'auc')
-    ## baseline class proportion
-    prop <- sum(tru_inf[idx]) / length(tru_inf[idx])
-    ## average prediction variance:
-    pred_var <- mean(fit$summary.linear.predictor$sd[idx]^2)
-    ## "discovery rate" always for in-sample
-    disc <- sum(tru_inf[obs_idx]) / sum(tru_inf)
-    ## * (length(tru_inf) / length(obs_idx))
-    return(tibble_row(
-        !!!bool, auc = auc, roc = roc,
-        prop = prop, var = pred_var,
-        disc = disc, thresh = thresh
-    ))
-}
-
-bool_stats <- function(conf_mat) {
-    sens <- conf_mat[2, 2] / sum(conf_mat[,2])
-    spec <- conf_mat[1, 1] / sum(conf_mat[,1])
-    list(
-        sens = sens,
-        spec = spec,
-        bacc = (sens + spec) / 2
+des_score <- function(des, tru_inf) {
+    end_des <- des[nrow(des),]$obs_idx[[1]]
+    tibble_row(
+        m = length(end_des),
+        n = length(tru_inf),
+        act_pct = sum(tru_inf[-end_des]) / length(tru_inf),
+        sel = list(des$sel)
     )
 }
 
-##' Wrapper function for adaptive and random algorithms
+##' Workhorse function for adaptive and random algorithms
 ##'
 ##' @title sampling_design
-##' @param args A named list to pass to sampling strat
-sampling_design <- function(df, strat = 'rand_unif', n_init = 10,
-                               pred = c('global', 'known', 'interp', 'latent'),
-                               silent = TRUE, args = NULL) {
-    if (str_detect(strat, 'rand'))
-        return(random_sampling(df, strat, n_init, pred, args))
-    adaptive_sampling(df, strat, n_init, pred, args)
-}
-
-adaptive_sampling <- function(df, strat, n_init, pred, args) {
+##' @param init Initial sample indices. If single no., number of initial samples instead
+##' @param strat_arg A named list to pass to sampling strat
+sampling_design <- function(df, init = 10,
+                            pred = c('global', 'known', 'interp', 'latent'),
+                            tar_thresh = 0.05, conf_lvl = 0.95,
+                            silent = TRUE, strat_arg = NULL, seed = NULL) {
+    if (!is.null(seed))
+        set.seed(seed)
     ntot <- nrow(df)
-    niter <- ceiling((.75 * ntot - n_init) / 3)
-    ini <- sample(ntot, n_init)
+    if (length(init) == 1)
+        init <- sample(ntot, init)
     mesh <- inla_mesh(df)
     spde <- inla.spde2.pcmatern(
         mesh = mesh,
@@ -131,45 +75,50 @@ adaptive_sampling <- function(df, strat, n_init, pred, args) {
         prior.range = c(0.1, 0.05),
         prior.sigma = c(3, 0.1)
     )
-    df$infestation[-ini] <- NA
-    map_dfr(1:niter, ~{
-        if (str_detect(strat, 'comb'))
-            args <- c(t = (.x - 1) / (niter - 1), args)
+    df$infestation[-init] <- NA
+    done <- FALSE
+    ret <- map_dfr(1:ntot, ~{
+        if (done)
+            return(tibble_row(fit = NULL, obs_idx = NULL, sel = NULL))
+        ## if (str_detect(strat, 'comb'))
         obs <- which(!is.na(df$infestation))
+        unobs <- which(is.na(df$infestation))
         fit_dat <- build_pred_dat(df, obs, pred)
-        ## now using gp2!
-        ft <- fit_gp2(df = fit_dat, mesh = mesh, spde = spde)
-        if (is.null(args))
-            sel <- do.call(strat, splice(which(is.na(df$infestation)), ft))
-        else
-            sel <- do.call(strat, splice(which(is.na(df$infestation)), ft, args))
+        stack <- spde_stack(fit_dat, mesh, spde)
+        ft <- fit_gp2(df = fit_dat, spde = spde, stack = stack)
+        ## checking here implies didn't actually "visit" sel
+        if (.x > 2 & length(unique(fit_dat$truth[obs])) > 1)
+            done <<- check_complete(ft, unobs, tar_thresh * ntot, conf_lvl)
+        if (is.null(strat_arg))
+            ## sel <- do.call(strat, splice(unobs, ft))
+            sel <- rand_unif(unobs, ft)
+        else {
+            strat_arg$t <- (length(obs) - length(init)) / (ntot - length(init))
+            sel <- comb_risk_var(unobs, ft, strat_arg$t, strat_arg$alpha)
+        }
         df$infestation[sel] <<- df$truth[sel]
         tibble_row(fit = ft, obs_idx = list(obs), sel = list(sel))
     })
+    return(drop_na(ret))
 }
 
-random_sampling <- function(df, strat, n_init, pred, args) {
-    mesh <- inla_mesh(df)
-    spde <- inla.spde2.pcmatern(
-        mesh = mesh,
-        alpha = 2,
-        prior.range = c(0.1, 0.05),
-        prior.sigma = c(3, 0.1)
+check_complete <- function(fit, unobs_idx, tar_inc, conf_lvl) {
+    samp_inc <- function(s) {
+        s$latent %>%
+            inla.link.invlogit %>%
+            map_int(~sample(c(0L, 1L), size = 1, prob = c(1 - .x, .x))) %>%
+            sum
+    }
+    if (sum(fit$summary.fitted.values$mean[unobs_idx]) > 2.1 * tar_inc)
+        return(FALSE)
+    samp <- inla.posterior.sample(
+        5000, fit,
+        selection = list(APredictor = unobs_idx),
+        use.improved.mean = FALSE,
+        skew.corr = FALSE
     )
-    map_dfr(1:3, ~{
-        p <- sum(rep(.25, .x))
-        tdf <- df # just to be safe
-        m <- n_init + 3 * ceiling((p * nrow(df) - n_init) / 3 - 1)
-        ## -1^^ last adapt iter not added
-        if (is.null(args))
-            obs <- do.call(strat, splice(tdf, m))
-        else
-            obs <- do.call(strat, splice(tdf, m, args))
-        tdf$infestation[-obs] <- NA
-        fd <- build_pred_dat(tdf, obs, pred)
-        ft <- fit_gp2(df = fd, mesh = mesh, spde = spde)
-        tibble_row(fit = ft, obs_idx = list(obs))
-    })
+    pred_inc <- map_int(samp, samp_inc)
+    (sum(pred_inc < tar_inc) / length(pred_inc)) > conf_lvl
 }
 
 build_pred_dat <- function(df, obs_idx, pred_type) { # df NOT dummy coded
@@ -184,6 +133,51 @@ build_pred_dat <- function(df, obs_idx, pred_type) { # df NOT dummy coded
 
 ## dat_org <- prep_model_data('../data-raw/gtm-tp-mf.rds')
 ## dat_sub <- filter(dat_org, village == 'Paternito')
+
+## des <- sampling_design(dat_sub, init = 70, pred = 'known', strat_arg = list(alpha = 0.15), tar_thresh = 0.1)
+## des_score(des, dat_sub$truth)
+
+## plot_obs_surface(
+    ## slice_tail(des)$fit[[1]]$summary.fitted.values,
+    ## slice_tail(des)$obs_idx[[1]],
+##     ft$summary.linear.predictor[1:107,],
+##     1:nrow(dat_sub),
+##     dat_sub
+## )
+
+## pd <- build_pred_dat(dat_sub, 1:nrow(dat_sub), 'global')
+## s <- sample(1:nrow(dat_sub), 80)
+## pd$infestation[-s] <- NA
+## mesh <- inla_mesh(pd)
+## spde <- inla.spde2.pcmatern(
+##     mesh = mesh,
+##     alpha = 2,
+##     prior.range = c(0.1, 0.05),
+##     prior.sigma = c(3, 0.1)
+## )
+
+## A <- inla.spde.make.A(mesh = mesh, loc = sp_project(dat_sub, normalize = TRUE))
+## stack <- spde_stack(pd, mesh, spde)
+## ft <- fit_gp2(pd, spde, stack)
+
+## hyp <- inla.hyperpar.sample(5000, ft, improve.marginals = TRUE)
+## dm <- dist_mat(dat_sub, normalize = TRUE)
+## m <- nrow(dm)
+
+## h1 <- hyp[1,]
+## cov <- matrix(0, m, m)
+## for(i in 1:m) {
+##     for (j in i:m) {
+##         cov[i, j] <- h1[2]^2 * INLA:::inla.matern.cf(dm[i, j], h1[1], 1)
+##         cov[j, i] <- cov[i, j]
+##     }
+## }
+
+## mu <- A %*% ft$summary.random$z$mean
+## Z <- mvrnorm(1, mu, cov)
+
+## fixed <- ft$marginals.fixed
+## inter <- inla.rmarginal(1, 
 
 ## is <- sampling_design(dat_sub, 'convex_comb', n_init = 10, pred = 'global', silent = FALSE)
 ## is_score(is, dat_sub$truth, 10, 'convex_comb')

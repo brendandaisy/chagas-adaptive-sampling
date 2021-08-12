@@ -6,7 +6,7 @@
 require(rgdal)
 require(sf)
 require(geosphere)
-require(tidygraph)
+## require(tidygraph)
 
 ### Distance/precision matrix stuff
 

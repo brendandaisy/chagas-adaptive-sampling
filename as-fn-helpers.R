@@ -1,11 +1,11 @@
-require(FNN)
 require(INLA)
 require(gridExtra)
 require(ggthemes)
+require(tikzDevice)
 
 ### Selection Methods-----------------------------------------------------------
 
-rand_unif <- function(df, m) sample(seq_len(nrow(df)), m)
+rand_unif <- function(unobs_idx, fit) sample(unobs_idx, 3)
 
 rand_inhib <- function(df, m, neigh = 50) {
     idx <- seq_len(nrow(df))
@@ -111,7 +111,7 @@ rand_dens <- function(df, m, neigh = 100, alpha = 1) {
 ##' @param t Adaptive sampling iteration
 ##' @param alpha Shape of tradeoff; alpha < 1 prioritizes risk sooner
 ##' @return Indices corresp. to rows in data
-comb_risk_var <- function(unobs_idx, fit, t, alpha = 0.5) {
+comb_risk_var <- function(unobs_idx, fit, t, alpha) {
     eta <- fit$summary.linear.predictor[unobs_idx,]
     risk <- fit$summary.fitted.values[unobs_idx,]$mean
     eta_var <- eta$sd^2
@@ -168,33 +168,36 @@ tar_kld <- function(unobs_idx, fit) {
 
 ### INLA Models-----------------------------------------------------------------
 
-fit_gp2 <- function(df, mesh, spde, control = list(mlik = FALSE)) {
+fit_gp2 <- function(df, spde, stack, control = list(mlik = FALSE, config = TRUE)) {
     pfixed <- list(mean.intercept = 0, prec.intercept = .3, mean = 0, prec = .3)
     pid <- list(theta = list(prior = "loggamma", param = c(1, 0.01)))
-    
+  
     inla(
         update(
             make_formula(df),
             ~ . + f(z, model = spde) + f(id, model = 'iid', hyper = pid)
         ),
-        data = mutate(df, z = mesh$idx$loc),
+        data = inla.stack.data(stack, spde = spde, pid = pid),
         family = 'binomial',
         control.fixed = pfixed,
-        control.predictor = list(link = 1, compute = TRUE),
+        control.predictor = list(A = inla.stack.A(stack), link = 1, compute = TRUE),
         control.compute = control
     )
 }
 
 
-fit_gp <- function(df, mesh, spde, control = list(mlik = FALSE)) {
+fit_gp <- function(df, spde, stack, control = list(mlik = FALSE)) {
     pfixed <- list(mean.intercept = 0, prec.intercept = .3, mean = 0, prec = .3)
-    
+  
     inla(
-        update(make_formula(df), ~ . + f(z, model = spde)),
-        data = mutate(df, z = mesh$idx$loc),
+        update(
+            make_formula(df),
+            ~ . + f(z, model = spde)
+        ),
+        data = inla.stack.data(stack, spde = spde),
         family = 'binomial',
         control.fixed = pfixed,
-        control.predictor = list(link = 1, compute = TRUE),
+        control.predictor = list(A = inla.stack.A(stack), link = 1, compute = TRUE),
         control.compute = control
     )
 }
@@ -232,7 +235,7 @@ fit_iid <- function(df, mesh, spde, control = list(mlik = FALSE)) {
     
     inla(
         update(make_formula(df), ~ . + f(id, model = 'iid', hyper = pid)),
-        data = df,
+        data = mutate(df, Intercept = 1),
         family = 'binomial',
         control.fixed = pfixed,
         control.predictor = list(link = 1, compute = TRUE),
@@ -266,20 +269,37 @@ make_formula <- function(df) {
     trend <- str_c(colnames(df)[-c(1:4, ncol(df) - 1, ncol(df))], collapse = '+')
     as.formula(
         paste0(
-            'infestation~1',
+            'infestation~-1 + Intercept',
             if (trend == '') '' else '+',
             trend
         )
     )
 }
 
+spde_stack <- function(df, mesh, spde) {
+    df_proj <- sp_project(df, normalize = TRUE)
+    A <- inla.spde.make.A(mesh = mesh, loc = coordinates(df_proj))
+    z_idx <- inla.spde.make.index(name = "z", n.spde = spde$n.spde)
+    inla.stack(
+        data  = list(infestation = df$infestation, link = 'logit'),
+        A = list(A, 1),
+        effects = list(
+            c(z_idx, list(Intercept = 1)),
+            select(df, -infestation, -truth)
+        ),
+        tag = "zstack"
+    )
+}
+
+    
+
 inla_mesh <- function(df) {
-    v <- df$village[1]
-    dat_proj <- sp_project(df, normalize = TRUE)
-    bound <- inla.nonconvex.hull(coordinates(dat_proj))
+    df_proj <- sp_project(df, normalize = TRUE)
+    v <- df_proj$village[1]
+    bound <- inla.nonconvex.hull(coordinates(df_proj))
 
     inla.mesh.2d(
-        loc = coordinates(dat_proj),
+        loc = coordinates(df_proj),
         boundary = bound,
         cutoff = 0.07,
         max.edge = if (v == 'Cerrón') 0.15 else 0.17,
@@ -296,8 +316,21 @@ unobs_list <- function(boot_df, village) {
     map(obs, ~df$id[-.x])
 }
 
+bal_sample <- function(y, n_init = 10) {
+    pos <- sample(which(y == 1), floor(n_init / 2))
+    neg <- sample(which(y == 0), ceiling(n_init / 2))
+    return(c(pos, neg))
+}
+
 ## safer sample for vectors of len 1
 sample_vec <- function(x, ...) x[sample.int(length(x), ...)]
+
+tikz_plot <- function(ggp, fname = 'tikz', w = 8.5, h = 4) {
+    tikz(paste0(fname, '.tex'), standAlone=TRUE, width = w, height = h)
+    print(ggp)
+    dev.off()
+    system(paste0('pdflatex ', fname, '.tex'))
+}
 
 ### Plotting--------------------------------------------------------------------
 
