@@ -2,7 +2,7 @@ source('adaptive-sampling-fn.R')
 source('as-fn-helpers.R')
 
 NREP <- 2
-PRED <- 'known'
+PRED <- 'global'
 THRESH <- 0.05
 ### DANGER!! Change VERSION!!!!!!!!!
 VERSION <- 3.4 # change this whenever new round (not) compat with prev samples

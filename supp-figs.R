@@ -39,12 +39,12 @@ full_vil_summ <- function(df, village, pred_type = 'global', fit_fun = fit_gp2) 
 marg_rho <- function(summ) imap_dfr(summ$rho, ~tibble(v = .y, !!!as_tibble(.x)))
 
 dat_org <- prep_model_data('../data-raw/gtm-tp-mf.rds') %>%
-    mutate(village = str_replace(village, 'ó', "\\\\'o"))
+    mutate(village = str_replace(village, 'Ã³', "\\\\'o"))
 
 ### Compare proposed model to simpler ones--------------------------------------
 
 summ0 <- map_dfr(unique(dat_org$village), ~full_vil_summ(dat_org, .x, fit_fun = fit_iid))
-summ <- map_dfr(unique(dat_org$village), ~full_vil_summ(dat_org, .x))
+summ <- map_dfr(unique(dat_org$village), ~full_vil_summ(dat_org, .x, fit_fun = fit_gp))
 summ2 <- map_dfr(unique(dat_org$village), ~full_vil_summ(dat_org, .x, fit_fun = fit_gp2))
 
 summ0b <- map_dfr(
@@ -54,7 +54,7 @@ summ0b <- map_dfr(
 
 summb <- map_dfr(
     unique(dat_org$village),
-    ~full_vil_summ(dat_org, .x, pred_type = 'known')
+    ~full_vil_summ(dat_org, .x, pred_type = 'known', fit_fun = fit_gp)
 )
 
 summ2b <- map_dfr(
@@ -71,11 +71,25 @@ res <- bind_rows(
     mutate(summ2b, model = 'both', pred = 'all')
 )
 
+res %>%
+    group_by(village, pred) %>%
+    slice_max(mlik, with_ties = TRUE) %>%
+    ungroup %>%
+    count(model)
+
 gg <- res %>%
-    pivot_longer(cpu:mlik) %>%
-    ggplot(aes(interaction(pred, village), value, fill = model)) +
+    rename(`CPU(sec)` = cpu, DIC = dic, ML = mlik) %>%
+    pivot_longer(`CPU(sec)`:ML) %>%
+    ggplot(
+        aes(
+            interaction(pred, village), value,
+            fill = factor(model, labels = c('$\\varepsilon(s)$ only', '$Z(s)$ only', 'Both'))
+            ## fill = fct_relevel(model, 'indep', 'spatial')
+        )
+    ) +
     geom_col(position = position_dodge()) +
-    facet_wrap(~name, scales='free', nrow = 3) +
+    facet_wrap(~fct_relevel(name, 'DIC', 'ML'), scales='free', nrow = 3) +
+    ## scale_fill_manual(labels = c('$\\varepilon$ only', '$Z$ only', 'Both')) +
     labs(x = 'Predictor $\\times$ village', y = NULL, fill = NULL) +
     theme_bw()
 
@@ -94,7 +108,8 @@ gg <- bind_rows(
     xlim(0, 4) +
     labs(
         x = 'Effective range $\\rho$',
-        y = 'Density $p(\\rho \\mid \\mathscr{S})$',
+        ## y = 'Density $p(\\rho \\mid \\mathscr{S})$',
+        y = NULL,
         col = NULL
     ) +
     theme_bw()
@@ -116,24 +131,11 @@ inla_fits <- function(village, df, pred_type = 'global', fit_fun = fit_gp2) {
     fit_fun(fit_dat, spde, spde_stack(fit_dat, mesh, spde))
 }
 
-## summ_fxe <- function(ft) {
-##     imap_dfr(ft$marginals.fixed[-c(1, 3)], ~{
-##         ci5 <- inla.hpdmarginal(0.5, .x)
-##         ci95 <- inla.hpdmarginal(0.95, .x)
-##         tibble(
-##             var = .y,
-##             m = inla.zmarginal(.x, TRUE)$mean,
-##             lo5 = ci5[,1],
-##             hi5 = ci5[,2],
-##             lo95 = ci95[,1],
-##             hi95 = ci95[,2]
-##         )
-##     })
-## }
-
 summ_fxe <- function(summ_df, village) {
     sumv <- filter(summ_df, village == !!village)
     imap_dfr(sumv$fix[[1]][-1], ~{
+        if (.y == 'bed_hygienemala')
+            return(tibble())
         ci5 <- inla.hpdmarginal(0.5, .x)
         ci95 <- inla.hpdmarginal(0.95, .x)
         tibble(
@@ -149,6 +151,13 @@ summ_fxe <- function(summ_df, village) {
 }
 
 fx_all <- map_dfr(unique(dat_org$village), ~summ_fxe(summ2b, .x))
+
+## which vars were most consistent/important?
+
+fx_all %>%
+    filter(hi5 < 0) %>%
+    count(var, sort = TRUE) %>%
+    filter(n >= 3)
         
 gg <- fx_all %>%
     mutate(var = str_replace_all(var, '\\_', '\\\\_')) %>%
@@ -166,10 +175,9 @@ tikz_plot(gg, 'fixed-all', 7.6, 5)
 
 ### Preferential sampling example-----------------------------------------------
 
+dperim <- function(pt) min(1 - pt$x, pt$x, 1 - pt$y, pt$y)
+
 sim_gp <- function(pts) {
-    dperim <- function(pt) {
-        min(abs(pt$x - 1), abs(pt$x - 0), abs(pt$y - 1), abs(pt$y - 0))
-    }
     n <- nrow(pts)
     cov <- matrix(0, n, n)
     dprm <- rep(0, n)
@@ -179,11 +187,11 @@ sim_gp <- function(pts) {
             p1 <- pts[i,]
             p2 <- pts[j,]
             d <- sqrt((p1$x - p2$x)^2 + (p1$y - p2$y)^2)
-            cov[i, j] <- 0.25 * INLA:::inla.matern.cf(d, range = 0.3, nu = 1);
+            cov[i, j] <- 0.25 * INLA:::inla.matern.cf(d, range = 0.3, nu = 0.5)
             cov[j, i] <- cov[i, j]
         }
     }
-    resp <- mvrnorm(1, mu = -2 * dprm + rep(0.2, n), Sigma = cov) %>%
+    resp <- mvrnorm(1, mu = -3.5 * dprm + rep(0.75, n), Sigma = cov) %>%
         inla.link.invlogit %>%
         map_int(~sample(c(0L, 1L), size = 1, prob = c(1 - .x, .x)))
     mutate(pts, dperim = dprm, resp = resp)
@@ -223,178 +231,101 @@ samp_inc <- function(fit, sel) {
     })
 }
 
-set.seed(123)
+set.seed(14)
 
-## dat <- tibble(x = runif(50), y = runif(50), idx = 1:50) %>%
-##     sim_gp
+dat <- tibble(x = runif(80), y = runif(80), idx = 1:80) %>%
+    sim_gp
+
 dat <- read_csv('sim-gp.csv')
 
-ini_sel <- which(dat$sel == 'init')
-ini_sel <- c(ini_sel[ini_sel != 5], 3)
-## dat <- mutate(dat, sel = ifelse(1:n() %in% ini_sel, 'init', 'no'))
+ini_sel <- c(45, 18, 61, 71, 72, 75, 8)
 
 theme <- theme_bw() +
     theme(
         panel.background = element_rect(fill = gray(0.95)),
-        axis.title = element_blank(),
-        ## axis.text = element_blank(),
-        ## axis.ticks = element_blank()
-        ## panel.grid = element_blank()
+        axis.title = element_blank()
     )
 
-p1 <- ggplot(dat, aes(x, y)) +
-    geom_point(aes(shape = factor(resp, labels = c('Not infested', 'Infested')))) +
-    geom_text(aes(label = idx)) +
-    scale_shape_manual(values = c(`Not infested` = 16, `Infested` = 4)) +
-    ## geom_point(data = dat[sel1,], shape = 1, size = 3) +
+gg1 <- ggplot(dat, aes(x, y)) +
+    geom_point(aes(shape = as.factor(resp))) +
+    # geom_text(aes(label = idx)) +
+    geom_point(data = dat[ini_sel,], shape = 1, size = 5.5) +
+    scale_shape_manual(
+        labels = c('$y = 0$', '$y = 1$'),
+        values = c(`0` = 16, `1` = 4)
+    ) +
+    ## labs(title = 'Pr$(y = 1) = g(0.2 - 2 x_1(s) + Z(s))$') +
     theme +
     theme(
-        legend.position = c(.13, .93),
+        legend.position = c(.09, .93),
         legend.title = element_blank(),
         legend.spacing.y = unit(0, 'pt'), 
         legend.background = element_rect(fill = gray(0.95), color = 'black'),
         legend.key = element_rect(fill = gray(0.95)),
         ## legend.justification = 'center',
-        legend.margin = margin(.5, .5, .5, .5)
+        legend.margin = margin(.5, 1, .5, 0)
     )
 
-tikz_plot(p1, 'fig1a', w = 4, h = 4)
+tikz_plot(gg1, 'fig1a', w = 4, h = 4, cd = 'figs')
 
-pref_sel1 <- c(17, 45, 10, 24, 26, 33, 44, 38, 32, 31)
-sel1 <- c(pref_sel1, ini_sel)
-ft1 <- fit_simple_gp(dat, sel1)
-tru1 <- sum(dat$resp[-sel1])
-pred1 <- samp_inc(ft1, sel1)
+fit_sel <- function(df, sel) {
+    ft <- fit_simple_gp(df, sel)
+    list(
+        sel = sel,
+        ft = ft,
+        tru = sum(df$resp[-sel]),
+        pred = samp_inc(ft, sel)
+    )
+}
 
-pref_sel2 <- c(8, 33, 47, 26, 48, 46, 2, 22, 41, 3, 23, 25, 43, 5, 36, 42)
-sel2 <- c(pref_sel2, ini_sel)
-ft2 <- fit_simple_gp(dat, sel2)
-tru2 <- sum(dat$resp[-sel2])
-pred2 <- samp_inc(ft2, sel2)
+plot_sel <- function(df, sel) {
+    probs <- sel$ft$summary.fitted.values$mean
+    dfr <- mutate(df, r = probs)
+
+    gg <- ggplot(dfr, aes(x, y)) +
+        geom_point(data = dat[sel$sel,], shape = 1, size = 7) +
+        geom_point(aes(col = r, size = r)) +
+        scale_color_gradient(low = 'blue', high = 'red') +
+        scale_shape_manual(values = c(`Not infested` = 16, `Infested` = 4)) +
+        theme +
+        theme(legend.position = 'none')
+
+    print(gg)
+}
+
+sel1a <- fit_sel(dat, c(ini_sel, 10, 45, 11, 33, 47))
+sel2a <- fit_sel(dat, c(ini_sel, 44, 23, 36, 14, 42))
+
+tikz_plot(plot_sel(dat, sel1a), 'fig1b', 5, 5)
+tikz_plot(plot_sel(dat, sel2a), 'fig1c', 5, 5)
+
+sel1b <- fit_sel(dat, c(sel1a$sel, 22, 41, 2, 37, 21, 8, 38, 50, 24))
+sel2b <- fit_sel(dat, c(sel2a$sel, 12, 4, 9, 25, 7, 5, 46, 21, 13))
+
+tikz_plot(plot_sel(dat, sel1b), 'fig1d', 5, 5)
+tikz_plot(plot_sel(dat, sel2b), 'fig1e', 5, 5)
 
 dpred <- bind_rows(
-    tibble(pred = pred1, sel = 'S1', tru = tru1),
-    tibble(pred = pred2, sel = 'S2', tru = tru2)
+    tibble(pred = sel1b$pred, sel = 'S1', tru = sel1b$tru),
+    tibble(pred = sel2b$pred, sel = 'S2', tru = sel2b$tru)
 )
 
-predlab <- tribble(
-    ~pred, ~density, ~sel,
-    8, 0.07, 'S1', 
-    23.7, 0.07, 'S2'
-)
-
-p2 <- dat %>%
-    mutate(
-        r = ft1$summary.fitted.values$mean,
-        sel = 1:n() %in% sel1
-    ) %>%
-    ggplot(aes(x, y)) +
-    geom_point(data = dat[sel1,], shape = 1, size = 5.5) +
-    geom_point(
-        aes(
-            col = r,
-            size = r,
-            shape = factor(resp, labels = c('Not infested', 'Infested'))
-        )
-    ) +
-    scale_color_gradient(low = 'blue', high = 'red') +
-    scale_shape_manual(values = c(`Not infested` = 16, `Infested` = 4)) +
-    theme +
-    theme(legend.position = 'none')
-
-tikz_plot(p2, 'fig1b', w = 5, h = 5)
-
-p3 <- dat %>%
-    mutate(
-        r = ft2$summary.fitted.values$mean,
-        sel = 1:n() %in% sel1
-    ) %>%
-    ggplot(aes(x, y)) +
-    geom_point(data = dat[sel2,], shape = 1, size = 5.5) +
-    geom_point(
-        aes(
-            col = r,
-            size = r,
-            shape = factor(resp, labels = c('Not infested', 'Infested'))
-        )
-    ) +
-    scale_color_gradient(low = 'blue', high = 'red') +
-    scale_shape_manual(values = c(`Not infested` = 16, `Infested` = 4)) +
-    theme +
-    theme(legend.position = 'none')
-
-tikz_plot(p3, 'fig1c', w = 5, h = 5)
-
-p4 <- ggplot(dpred, aes(pred, col = sel)) +
+gg2 <- ggplot(dpred, aes(pred, col = sel)) +
     geom_density() +
     geom_vline(aes(xintercept = tru), linetype = 'dashed') +
     labs(x = 'Remaining infestations') +
     ## geom_text(aes(y = density, label = sel), predlab) +
     theme_bw() +
     theme(
-        ## axis.title = element_blank(),
-        ## axis.text = element_blank(),
-        ## axis.ticks = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
         ## panlel.grid = element_blank(),
         panel.background = element_rect(fill = gray(0.95)),
         legend.position = 'none'
     )
 
-tikz_plot(p4, 'fig1d', w = 5, h = 5)
-
-fxe_hpd <- function(ft) {
-    imap_dfr(ft$marginals.fixed, ~{
-        ci5 <- inla.hpdmarginal(0.5, .x)
-        ci95 <- inla.hpdmarginal(0.95, .x)
-        tibble(
-            beta = .y,
-            m = inla.zmarginal(.x, TRUE)$mean,
-            lo5 = ci5[,1],
-            hi5 = ci5[,2],
-            lo95 = ci95[,1],
-            hi95 = ci95[,2]
-        )
-    })
-}
-
-fx1 <- fxe_hpd(ft1) %>%
-    mutate(
-        beta = ifelse(beta == 'dperim', '$\\beta_1$', '$\\beta_0$'),
-        samp = 's1'
-    )
-
-fx2 <- fxe_hpd(ft2) %>%
-    mutate(
-        beta = ifelse(beta == 'dperim', '$\\beta_1$', '$\\beta_0$'),
-        samp = 's2'
-    )
-
-bind_rows(fx1, fx2) %>%
-    ggplot(aes(beta, m, col = samp)) +
-    ## geom_hline(xintercept = -2, col = 'gray55', linetype = 'dashed') +
-    geom_linerange(aes(ymin = lo95, ymax = hi95), size = 1, position = position_dodge2(.5)) +
-    geom_linerange(aes(ymin = lo5, ymax = hi5), size = 2, position = position_dodge2(.5)) +
-    geom_point(size = 1.5, position = position_dodge2(.5)) +
-    labs(x = 'Log odds') +
-    theme_bw() +
-    theme(axis.title = element_blank())
-
-## ggplot(fixed, aes(x, y, col = samp)) +
-##     geom_vline(xintercept = -2, linetype = 'dashed') +
-##     geom_line() +
-##     xlim(-10, 10) +
-##     theme_bw()
-
-## range <- ft1$marginals.hyperpar[[1]] %>%
-##     as_tibble %>%
-##     mutate(samp = 's1') %>%
-##     bind_rows(mutate(as_tibble(ft2$marginals.hyperpar[[1]]), samp = 's2'))
-
-## ggplot(range, aes(x, y, col = samp)) +
-##     geom_vline(xintercept = 0.3, linetype = 'dashed') +
-##     geom_line() +
-##     xlim(0, 4) +
-##     theme_bw()
+tikz_plot(gg2, 'fig1f', w = 4, h = 3.4)
 
 ### Utility function examples---------------------------------------------------
 
