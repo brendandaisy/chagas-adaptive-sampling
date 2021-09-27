@@ -38,7 +38,7 @@ full_vil_summ <- function(df, village, pred_type = 'global', fit_fun = fit_gp2) 
 
 marg_rho <- function(summ) imap_dfr(summ$rho, ~tibble(v = .y, !!!as_tibble(.x)))
 
-dat_org <- prep_model_data('../data-raw/gtm-tp-mf.rds') %>%
+dat_org <- prep_model_data('../data-raw/gtm-tp-mf.rds') |> 
     mutate(village = str_replace(village, 'ó', "\\\\'o"))
 
 ### Compare proposed model to simpler ones--------------------------------------
@@ -63,48 +63,74 @@ summ2b <- map_dfr(
 )
 
 res <- bind_rows(
-    mutate(summ0, model = 'indep', pred = 'global'),
-    mutate(summ, model = 'spatial', pred = 'global'),
-    mutate(summ2, model = 'both', pred = 'global'),
-    mutate(summ0b, model = 'indep', pred = 'all'),
-    mutate(summb, model = 'spatial', pred = 'all'),
-    mutate(summ2b, model = 'both', pred = 'all')
+    mutate(summ0, model = '$Z(s)$ removed', pred = 'global'),
+    mutate(summ, model = '$\\varepsilon(s)$ removed', pred = 'global'),
+    mutate(summ2, model = 'Full model', pred = 'global'),
+    mutate(summ0b, model = '$Z(s)$ removed', pred = 'all'),
+    mutate(summb, model = '$\\varepsilon(s)$ removed', pred = 'all'),
+    mutate(summ2b, model = 'Full model', pred = 'all')
 )
 
+# count cases where each method did best
 res %>%
     group_by(village, pred) %>%
     slice_max(mlik, with_ties = TRUE) %>%
     ungroup %>%
     count(model)
 
-gg <- res %>%
+gg <- res |> 
     rename(`CPU(sec)` = cpu, DIC = dic, ML = mlik) %>%
     pivot_longer(`CPU(sec)`:ML) %>%
-    ggplot(
-        aes(
-            interaction(pred, village), value,
-            fill = factor(model, labels = c('$\\varepsilon(s)$ only', '$Z(s)$ only', 'Both'))
-            ## fill = fct_relevel(model, 'indep', 'spatial')
-        )
-    ) +
+    ggplot(aes(village, value, fill = model)) +
     geom_col(position = position_dodge()) +
-    facet_wrap(~fct_relevel(name, 'DIC', 'ML'), scales='free', nrow = 3) +
-    ## scale_fill_manual(labels = c('$\\varepilon$ only', '$Z$ only', 'Both')) +
-    labs(x = 'Predictor $\\times$ village', y = NULL, fill = NULL) +
-    theme_bw()
+    facet_grid(
+        fct_relevel(name, 'DIC', 'ML') ~ factor(pred, c('global', 'all'), labels = c('Global only', 'All')), 
+        scales = 'free',
+        switch = 'y' 
+    ) +
+    labs(x = 'Village', y = NULL, fill = NULL) +
+    theme_bw() +
+    theme(
+        # aspect.ratio = 1,
+        strip.background.y = element_blank(),
+        strip.placement = "outside"
+    )
 
-tikz_plot(gg, 'sens-study', 9, 4.5)
+tikz_plot(gg, 'sens-study', 8, 4, cd = 'figs')
 
 ### Effective range for both predictor sets-------------------------------------
 
+rho_glo <- map_dfr(
+    summ2$rho, 
+    ~mutate(as_tibble(inla.hpdmarginal(0.95, .x)), mode = inla.mmarginal(.x))
+)
+
+rho_all <- map_dfr(
+    summ2b$rho, 
+    ~mutate(as_tibble(inla.hpdmarginal(0.95, .x)), mode = inla.mmarginal(.x))
+)
+
+diam <- dat_org |> 
+    group_by(village) |> 
+    nest() |>
+    rowwise() |> 
+    mutate(diam = max(dist_mat(data)))
+
+rgm <- mutate(rho_glo, across(everything(), ~.x * diam$diam))
+ram <- mutate(rho_all, across(everything(), ~.x * diam$diam))
+
+rgm$mode - ram$mode
+
+# lam <- -log(0.05) * 0.1
+
 gg <- bind_rows(
-    mutate(marg_rho(summ2), pred = 'Global $(p = 3)$'),
-    mutate(marg_rho(summ2b), pred = 'All $(p = 27)$')
+    mutate(marg_rho(summ2), pred = 'Global only'),
+    mutate(marg_rho(summ2b), pred = 'All')
 ) %>%
-    mutate(pred = fct_relevel(pred, 'Global $(p = 3)$')) %>%
     ggplot(aes(x, y, col = v)) +
     geom_line() +
-    facet_wrap(~pred, nrow = 1, scale = 'free') +
+    # geom_function(aes(x), fun = ~lam * .x^(-2) * exp(-lam / .x), inherit.aes = FALSE) +
+    facet_wrap(~fct_relevel(pred, 'Global only'), nrow = 1, scale = 'free') +
     xlim(0, 4) +
     labs(
         x = 'Effective range $\\rho$',
@@ -114,22 +140,9 @@ gg <- bind_rows(
     ) +
     theme_bw()
 
-tikz_plot(gg, 'range-full', 7.75, 3.25)
+tikz_plot(gg, 'range-full', 7.75, 3.25, cd = 'figs')
 
 ### Fixed effects for the best model--------------------------------------------
-
-inla_fits <- function(village, df, pred_type = 'global', fit_fun = fit_gp2) {
-    dfs <- filter(df, village == !!village)
-    fit_dat <- build_pred_dat(dfs, 1, pred_type)
-    mesh <- inla_mesh(dfs)
-    spde <- inla.spde2.pcmatern(
-        mesh = mesh,
-        alpha = 2,
-        prior.range = c(0.1, 0.05),
-        prior.sigma = c(3, 0.1)
-    )
-    fit_fun(fit_dat, spde, spde_stack(fit_dat, mesh, spde))
-}
 
 summ_fxe <- function(summ_df, village) {
     sumv <- filter(summ_df, village == !!village)
@@ -150,16 +163,17 @@ summ_fxe <- function(summ_df, village) {
     })
 }
 
+fx_glo <- map_dfr(unique(dat_org$village), ~summ_fxe(summ2, .x))
 fx_all <- map_dfr(unique(dat_org$village), ~summ_fxe(summ2b, .x))
 
 ## which vars were most consistent/important?
-
 fx_all %>%
     filter(hi5 < 0) %>%
     count(var, sort = TRUE) %>%
     filter(n >= 3)
-        
-gg <- fx_all %>%
+
+## plot ceofs for either predictor set
+gg <- fx_glo %>%
     mutate(var = str_replace_all(var, '\\_', '\\\\_')) %>%
     ggplot(aes(m, var)) +
     geom_vline(xintercept = 0, col = 'gray55', linetype = 'dashed') +
@@ -171,7 +185,7 @@ gg <- fx_all %>%
     theme_bw() +
     theme(panel.spacing = unit(0, "lines"))
 
-tikz_plot(gg, 'fixed-all', 7.6, 5)
+tikz_plot(gg, 'fixed-glo', 7.6, 5, cd = 'figs')
 
 ### Preferential sampling example-----------------------------------------------
 
@@ -248,7 +262,7 @@ theme <- theme_bw() +
 
 gg1 <- ggplot(dat, aes(x, y)) +
     geom_point(aes(shape = as.factor(resp))) +
-    # geom_text(aes(label = idx)) +
+    geom_text(aes(label = idx)) +
     geom_point(data = dat[ini_sel,], shape = 1, size = 5.5) +
     scale_shape_manual(
         labels = c('$y = 0$', '$y = 1$'),
@@ -281,7 +295,7 @@ fit_sel <- function(df, sel) {
 plot_sel <- function(df, sel) {
     probs <- sel$ft$summary.fitted.values$mean
     dfr <- mutate(df, r = probs)
-
+    
     gg <- ggplot(dfr, aes(x, y)) +
         geom_point(data = dat[sel$sel,], shape = 1, size = 7) +
         geom_point(aes(col = r, size = r)) +
@@ -289,12 +303,17 @@ plot_sel <- function(df, sel) {
         scale_shape_manual(values = c(`Not infested` = 16, `Infested` = 4)) +
         theme +
         theme(legend.position = 'none')
-
+    
     print(gg)
 }
 
-sel1a <- fit_sel(dat, c(ini_sel, 10, 45, 11, 33, 47))
-sel2a <- fit_sel(dat, c(ini_sel, 44, 23, 36, 14, 42))
+sel_prm <- purrr::accumulate(
+    pull(arrange(dat, dperim), idx)[1:30], ~c(.x, .y), .init = ini_sel
+)
+
+sel_prm <- purrr::accumulate(
+    pull(arrange(dat, dperim), idx)[1:30], ~c(.x, .y), .init = ini_sel
+)
 
 tikz_plot(plot_sel(dat, sel1a), 'fig1b', 5, 5)
 tikz_plot(plot_sel(dat, sel2a), 'fig1c', 5, 5)

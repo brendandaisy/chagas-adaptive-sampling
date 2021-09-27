@@ -7,104 +7,6 @@ require(tikzDevice)
 
 rand_unif <- function(unobs_idx, fit) sample(unobs_idx, 3)
 
-rand_inhib <- function(df, m, neigh = 50) {
-  idx <- seq_len(nrow(df))
-  dm <- dist_mat(df)
-  sel <- sample(idx, m)
-  cc <- 0
-  nrand <- 0
-  for(i in seq_along(sel)) {
-    while(any(dm[sel[i], sel[-i]] < neigh)) {
-      cc <- cc + 1
-      if (cc >= 100000) {
-        sel[i] <- sel[1]
-        break
-      }
-      sel[i] <- sample(idx[which(!idx %in% sel)], 1)
-    }
-  }
-  if (cc >= 100000) {
-    sel <- unique(sel)
-    nrand <- m - length(sel)
-  }
-  rem <- idx[which(!idx %in% sel)]
-  rand <- sample(rem, nrand)
-  return(c(sel, rand))
-}
-
-rand_pair <- function(df, m, neigh = c(100, 50), npair = m %/% 2 - 10) {
-  idx <- seq_len(nrow(df))
-  dm <- dist_mat(df)
-  sel <- sample(idx, m - npair)
-  rem <- idx[which(!idx %in% sel)]
-  for(i in seq_along(sel)) {
-    while(any(dm[sel[i], sel[-i]] < neigh[1])) {
-      if (sum(rem) == 0) {
-        sel[i] <- 0
-        npair <- npair + 1
-        break
-      }
-      new <- sample_vec(rem[rem != 0], 1)
-      rem[rem == new] <- 0
-      sel[i] <- new
-    }
-  }
-  sel <- sel[sel != 0]
-  pair_cand <- sel
-  pair <- double(npair)
-  p <- 1
-  while(sum(pair_cand) > 0 & p <= length(pair)) {
-    cand <- sample_vec(pair_cand[pair_cand != 0], 1)
-    pair_cand[pair_cand == cand] <- 0
-    nbs <- which(dm[cand, -cand] < neigh[2])
-    nbs <- nbs[which(!nbs %in% pair)]
-    if (length(nbs) > 0) {
-      pair[p] <- sample_vec(nbs, 1)
-      p <- p + 1
-    } # otherwise, all of cand's neighbors already used and it is no longer a cand
-  }
-  sel <- c(sel, pair[pair != 0])
-  xtra <- c()
-  if (length(sel) < m)
-    xtra <- sample_vec(idx[which(!idx %in% sel)], m - length(sel))
-  return(c(sel, xtra))
-}
-
-rand_icp <- function(df, m, neigh = 100, nclo = m %/% 3, alpha = 2) {
-  idx <- seq_len(nrow(df))
-  dm <- dist_mat(df)
-  sel <- sample(idx, m - nclo)
-  cc <- 0
-  for(i in seq_along(sel)) {
-    while(any(dm[sel[i], sel[-i]] < neigh)) {
-      cc <- cc + 1
-      if (cc >= 100000) {
-        sel[i] <- sel[1]
-        break
-      }
-      sel[i] <- sample(idx[which(!idx %in% sel)], 1)
-    }
-  }
-  if (cc >= 100000) {
-    sel <- unique(sel)
-    nclo <- m - length(sel)
-  }
-  rem <- idx[which(!idx %in% sel)]
-  dm <- dist_mat(df, cutoff = neigh)
-  w <- rowSums(dm[rem,]) + 1
-  clo <- sample(rem, nclo, prob = w^alpha / sum(w^alpha))
-  return(c(sel, clo))
-}
-
-rand_dens <- function(df, m, neigh = 100, alpha = 1) {
-  dm <- dist_mat(df, cutoff = neigh)
-  w <- rowSums(dm) + 1
-  ## dm <- dist_mat(df)
-  ## dm[dm > 100] <- 0
-  ## w <- rowSums(dm) + 1
-  sample(seq_len(nrow(df)), m, prob = w^alpha / sum(w^alpha))
-}
-
 ##' Selection based on combination of risk and predictor variance
 ##'
 ##' @title comb_risk_var
@@ -122,48 +24,6 @@ comb_risk_var <- function(unobs_idx, fit, t, alpha) {
   as.double(
     str_extract(names(sort(score, decreasing = TRUE)), '\\d+')[1:3]
   )
-}
-
-expl_var <- function(unobs_idx, fit) {
-  eta <- fit$summary.linear.predictor[unobs_idx,]
-  eta_var <- eta$sd^2
-  names(eta_var) <- rownames(eta)
-  return(as.double(str_extract(names(sort(eta_var, decreasing = TRUE)), '\\d+')[1:3]))
-}
-
-tar_risk <- function(unobs_idx, fit) {
-  s <- fit$summary.fitted.values[unobs_idx,]
-  r <- s$mean
-  names(r) <- rownames(s)
-  return(as.double(str_extract(names(sort(r, decreasing = TRUE)), '\\d+')[1:3]))
-}
-
-tar_entr <- function(unobs_idx, fit, thresh = 0.5) {
-  r <- map_dbl(
-    fit$marginals.linear.predictor[unobs_idx],
-    ~1 - inla.pmarginal(my_logit(thresh), .x)
-  )
-  e <- sort(-r * log2(r) - (1 - r) * log2(1 - r), decreasing = TRUE)
-  return(as.double(str_extract(names(e), '\\d+')[1:3]))
-}
-
-tar_entr2 <- function(unobs_idx, fit) {
-  s <- fit$summary.fitted.values[unobs_idx,]
-  r <- s$mean
-  names(r) <- rownames(s)
-  e <- sort(-r * log2(r) - (1 - r) * log2(1 - r), decreasing = TRUE)
-  return(as.double(str_extract(names(e), '\\d+')[1:3]))
-}
-
-tar_kld <- function(unobs_idx, fit) {
-  post <- map(fit$marginals.linear.predictor[unobs_idx], ~inla.rmarginal(10000, .x))
-  ## TODO assumes using both fixed and random effects
-  ## TODO precision of spatial var changed (currently .5)
-  p <- sum(fit$model.matrix[1,] != 0) + 1
-  pri <- rnorm(10000, 0, sum(rep(.3^(-1), p)))
-  k <- map_dbl(post, ~mean(KL.divergence(.x, pri, k = 5)))
-  names(k) <- names(post)
-  return(as.double(str_extract(names(sort(k)), '\\d+')[1:3]))
 }
 
 ### INLA Models-----------------------------------------------------------------
@@ -240,20 +100,6 @@ fit_iid <- function(df, mesh, spde, control = list(mlik = FALSE)) {
     control.fixed = pfixed,
     control.predictor = list(link = 1, compute = TRUE),
     control.compute = control
-  )
-}
-
-fit_fixed <- function(df, ...) {
-  pfixed <- list(mean.intercept = 0, prec.intercept = .3, mean = 0, prec = .3)
-  
-  inla(
-    make_formula(df),
-    family = 'binomial',
-    data = df,
-    control.fixed = pfixed,
-    control.predictor = list(link = 1, compute = TRUE),
-    control.compute = list(mlik = FALSE),
-    ...
   )
 }
 

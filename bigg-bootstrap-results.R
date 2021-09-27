@@ -39,7 +39,6 @@ results <- read_boot(
 ### Bootstrap performance-------------------------------------------------------
 
 res_summ <- results |>
-  # filter(alpha == 'Random') |> 
   group_by(alpha, village, pred) |>
   summarize(
     x = mean(m / n), y = mean(act_pct),
@@ -49,10 +48,6 @@ res_summ <- results |>
   ungroup()
 
 res_out <- results |>
-  # filter(alpha == 'Random', village == 'Amatillo', pred == 'Global only') |> 
-  # pull(act_pct) |> 
-  # quantile(0.95)
-  # 
   group_by(alpha, village, pred) |>
   filter(
     act_pct < quantile(act_pct, 0.05) | act_pct > quantile(act_pct, 0.95) |
@@ -81,14 +76,95 @@ gg <- res_summ |>
 
 tikz_plot(gg, 'results-perf', 10, 4.8)
 
-results |>
-  ggplot(aes(m / n, act_pct, col = as.factor(alpha))) +
-  geom_hline(aes(yintercept = thresh), col = 'grey70', linetype = 'dashed', alpha = .7) +
-  ## geom_point(size = 1.2, alpha = 0.3) +
-  geom_point(aes(x, y), data = res_summ, size = 3) +
-  facet_grid(pred ~ village, scales = 'free') +
-  ## xlim(0, 1) +
+### Comparison to random sampling-----------------------------------------------
+
+rand_size <- results |> 
+  filter(alpha == 'Random') |> 
+  pull(m)
+
+rand_comp <- results |> 
+  mutate(diff = (rep(rand_size, each = 7) - m) / n) |> 
+  filter(alpha != 'Random')
+
+rand_comp_q <- rand_comp |> 
+  filter(alpha != 'Random') |> 
+  group_by(alpha, pred) |> 
+  summarize(
+    ac5 = sum(act_pct <= 0.05) / n(), ac8 = sum(act_pct <= 0.08) / n(), min(diff), mean(diff), max(diff)
+  ) |> 
+  ungroup()
+
+rand_comp |> 
+  filter(alpha != 'Random') |> 
+  group_by(alpha, pred) |> 
+  mutate(
+    ac5 = sum(act_pct <= 0.05) / n(), ac8 = sum(act_pct <= 0.08) / n(), min(diff), mean(diff), max(diff)
+  )
+  
+res_cdf <- function(d, a, p) {
+  ds <- filter(rand_comp, diff <= d, alpha == a, pred == p)
+  sum(ds$act_pct <= 0.05) / nrow(ds)
+}
+
+rand_comp <- rand_comp |> 
+  rowwise() |> 
+  mutate(succ_rate = res_cdf(diff, alpha, pred))
+
+rc_summ95 <- rand_comp |> 
+  filter(succ_rate >= 0.95) |>
+  mutate(diff = diff + 0.002) |> 
+  group_by(alpha, pred) |> 
+  summarise(mx95 = max(diff), mn = min(c(diff, 0)))
+
+rc_summ <- rand_comp |> 
+  filter(succ_rate >= 0.8) |>
+  mutate(diff = diff + 0.002) |> 
+  group_by(alpha, pred) |> 
+  summarise(mx80 = max(diff)) |> 
+  left_join(rc_summ95)
+
+gg <- ggplot(rand_comp, aes(diff, act_pct)) +
+  geom_rect(
+    aes(xmax = mx95), 
+    xmin = -0.5, ymin = -.1, ymax = 0.2, 
+    data = rc_summ, 
+    fill = 'green', 
+    alpha = 0.3,
+    inherit.aes = FALSE
+  ) +
+  geom_rect(
+    aes(xmax = mx80, xmin = mx95), 
+    ymin = -.1, ymax = 0.2, 
+    data = rc_summ, 
+    fill = 'yellow', 
+    alpha = 0.3,
+    inherit.aes = FALSE
+  ) +
+  geom_rect(
+    aes(xmin = mx80), 
+    xmax = 0.5, ymin = -.1, ymax = 0.2, 
+    data = rc_summ, 
+    fill = 'steelblue3', 
+    alpha = 0.2,
+    inherit.aes = FALSE
+  ) +
+  geom_hline(yintercept = 0.05, linetype = 'longdash', col = 'tomato', alpha = 0.3, size = 1.2) +
+  geom_point(alpha = 0.5, size = 1) +
+  geom_text(
+    aes(label = paste0('$\\Delta_{95}=', round(100 * mx95, 1), '\\%$'), x = mx95 - 0.01), 
+    y = 0, size = 2, data = rc_summ
+  ) +
+  geom_text(
+    aes(label = paste0('$\\Delta_{80}=', round(100 * mx80, 1), '\\%$')), 
+    y = .08, x = .01, size = 2, data = rc_summ
+  ) +
+  facet_grid(alpha ~ pred, scales = 'free_x') +
+  scale_x_continuous(labels = pctr) +
+  scale_y_continuous(labels = pctr, limits = c(-.01, 0.11)) +
+  labs(y = 'True infestation rate', x = 'Difference in percent sampled from random') +
   theme_bw()
+
+tikz_plot(gg, 'comp-random', 6.5, 6, cd = 'figs')
 
 ### Summarizing bootstraps------------------------------------------------------
 
