@@ -1,0 +1,18 @@
+\newcommand{\etalchar}[1]{$^{#1}$}
+\begin{thebibliography}{NHG{\etalchar{+}}19}
+
+\bibitem[LMR{\etalchar{+}}13]{Lucero2013}
+David Lucero, Leslie Morrissey, Donna Rizzo, Antonieta Rodas, Roberto Garnica,
+  Lori Stevens, Dulce Bustamante, and Carlota Monroy.
+\newblock {Ecohealth interventions limit triatomine reinfestation following
+  insecticide spraying in La Brea, Guatemala}.
+\newblock {\em American Journal of Tropical Medicine and Hygiene},
+  88(4):630--637, 2013.
+
+\bibitem[NHG{\etalchar{+}}19]{Naimi2019}
+Babak Naimi, Nicholas Hamm, Thomas Groen, Andrew Skidmore, Albertus Toxopeus,
+  and Sara Alibakhshi.
+\newblock {ELSA: Entropy-based local indicator of spatial association}.
+\newblock {\em Spatial Statistics}, 29:66--88, 2019.
+
+\end{thebibliography}

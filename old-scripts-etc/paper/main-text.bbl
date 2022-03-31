@@ -1,0 +1,43 @@
+\begin{thebibliography}{1}
+
+\bibitem{Assuncao2009}
+R.~Assun{\c{c}}{\~{a}}o and E.~Krainski.
+\newblock {Neighborhood Dependence in Bayesian Spatial Models}.
+\newblock {\em Biometrical Journal}, 51(5):851--869, oct 2009.
+
+\bibitem{Gao2019}
+H.~Gao and J.~Bradley.
+\newblock {Bayesian analysis of areal data with unknown adjacencies using the
+  stochastic edge mixed effects model}.
+\newblock {\em Spatial Statistics}, 31:100357, 2019.
+
+\bibitem{Gelfand2010}
+A.~Gelfand, P.~Diggle, M.~Fuentes, and P.~Guttorp.
+\newblock {\em {Handbook of Spatial Statistics}}.
+\newblock Taylor \& Francis, 2010.
+
+\bibitem{Paciorek2013}
+C.~Paciorek.
+\newblock {Spatial models for point and areal data using Markov random fields
+  on a fine grid}.
+\newblock {\em Electronic Journal of Statistics}, 7(1):946--972, 2013.
+
+\bibitem{Rodrigues2012}
+E.~C. Rodrigues and R.~Assun{\c{c}}{\~{a}}o.
+\newblock {Bayesian spatial models with a mixture neighborhood structure}.
+\newblock {\em Journal of Multivariate Analysis}, 109:88--102, 2012.
+
+\bibitem{White2009}
+G.~White and S.~Ghosh.
+\newblock {A stochastic neighborhood conditional autoregressive model for
+  spatial data}.
+\newblock {\em Computational Statistics and Data Analysis}, 53(8):3033--3046,
+  2009.
+
+\bibitem{Whittle2020}
+R.~S. Whittle and A.~Diaz-Artiles.
+\newblock {An ecological study of socioeconomic predictors in detection of
+  COVID-19 cases across neighborhoods in New York City}.
+\newblock {\em BMC Medicine}, 18(1):271, dec 2020.
+
+\end{thebibliography}

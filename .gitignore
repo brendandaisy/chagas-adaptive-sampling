@@ -5,3 +5,14 @@
 *~
 **/*~
 old-scripts/*
+**/*.rds
+**/*.tex
+**/*.aux
+**/*.pdf
+**/*.png
+**/*.log
+**/*.snm
+**/*.el
+**/*.toc
+**/*.nav
+**/*.out
