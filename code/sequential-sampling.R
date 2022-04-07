@@ -1,50 +1,40 @@
 require(tidyverse)
 require(INLA)
 require(furrr)
-## require(MASS, exclude = 'select')
-## require(spdep)
-## require(gstat)
-## require(precrec)
 
-source('spatial-helpers.R')
-source('covariate-helpers.R')
-source('as-fn-helpers.R')
+source('code/other-helpers.R')
+source('code/seq-sampling-helpers.R')
 
-bigg_bs <- function(df, alphas, n_init = 10, n_rep = 10,
+##' Run `n_rep` replications of the simulation study
+##' A sampling design is computed for a village's data, for each value of `alpha` plus random sampling
+##' Multi-threading is used if enabled with `plan`
+##'
+##' @title run_simulation_study
+##' @param df The "raw" data we will be getting samples from
+##' @param alpha Vector of values in [0, 1] determining adaptive strategy
+##' @param n_init Number of initial random samples
+##' @param n_rep Number of replications of experiment
+run_simulation_study <- function(df, alphas, n_init = 10, n_rep = 10,
                     pred = c('global', 'known', 'interp', 'latent'),
                     tar_thresh = 0.05, conf_lvl = 0.95, silent = FALSE) {
     future_map_dfr(1:n_rep, ~{
-        ## if (!silent)
-        ##     print(paste0('Sample ', .x, '/', n_rep))
         init <- sample(1:nrow(df), n_init)
         args <- c(list(NULL), map(alphas, ~list(alpha = .x)))
         des <- map(
             args,
             ~sampling_design(df, init, pred, tar_thresh, conf_lvl, strat_arg = .x)
         )
-        map_dfr(des, ~des_score(.x, df$truth)) %>%
+        map_dfr(des, ~design_score(.x, df$truth)) %>%
             mutate(thresh = tar_thresh, init = list(init), alpha = c(NA, alphas))
     }, .options = furrr_options(seed = TRUE), .progress = TRUE)
 }
 
-bs_perf <- function(df, strat, n_init = 10, n_rep = 10,
-                    pred = c('global', 'known', 'interp', 'latent'),
-                    tar_thresh = 0.05, conf_lvl = 0.95,
-                    seed = TRUE, silent = TRUE, ...) {
-    dots <- list(...) # gather dots so map not confused
-    map_dfr(1:n_rep, ~{
-        if (!silent)
-            print(paste0('Sample ', .x, '/', n_rep))
-        des <- sampling_design(
-            df, strat, n_init,
-            pred, tar_thresh, conf_lvl,
-            strat_arg = dots
-        )
-        mutate(des_score(des, df$truth), thresh = tar_thresh, conf = conf_lvl)
-    })
-}
-
-des_score <- function(des, tru_inf) {
+##' Score the design based on # sampled and percentage of infectious houses left
+##'
+##' @title design_score
+##' @param des The design returned by `sampling_design`
+##' @param true_inf A vector of the true infectious labels
+design_score <- function(des, tru_inf) {
     end_des <- des[nrow(des),]$obs_idx[[1]]
     tibble_row(
         m = length(end_des),
@@ -54,19 +44,27 @@ des_score <- function(des, tru_inf) {
     )
 }
 
-##' Workhorse function for adaptive and random algorithms
+##' Obtain data from a sampling design strategy.
+##' This is the workhorse function for adaptive and random algorithms
 ##'
 ##' @title sampling_design
+##' @param df The "raw" data we will be getting samples from
 ##' @param init Initial sample indices. If single no., number of initial samples instead
+##' @param pred The type of predictors considered available
+##' @param tar_thresh The target reduction threshold
+##' @param conf_lvl The confidence level for meeting the reduction target
 ##' @param strat_arg A named list to pass to sampling strat
-sampling_design <- function(df, init = 10,
-                            pred = c('global', 'known', 'interp', 'latent'),
-                            tar_thresh = 0.05, conf_lvl = 0.95,
-                            silent = TRUE, strat_arg = NULL, seed = NULL) {
+##' @param seed Randomization seed
+sampling_design <- function(
+    df, init = 10, pred = c('global', 'known', 'interp', 'latent'),
+     tar_thresh = 0.05, conf_lvl = 0.95, silent = TRUE, strat_arg = NULL, seed = NULL
+) {
+
+    # setup spde mesh and other stuff
     if (!is.null(seed))
         set.seed(seed)
     ntot <- nrow(df)
-    if (length(init) == 1)
+    if (length(init) == 1) # then init = # of random samples to start with
         init <- sample(ntot, init)
     mesh <- inla_mesh(df)
     spde <- inla.spde2.pcmatern(
@@ -75,20 +73,24 @@ sampling_design <- function(df, init = 10,
         prior.range = c(0.1, 0.05),
         prior.sigma = c(3, 0.1)
     )
-    df$infestation[-init] <- NA
+    df$infestation[-init] <- NA # "mark" unvisited nodes
     done <- FALSE
     ret <- map_dfr(1:ntot, ~{
         if (done)
             return(tibble_row(fit = NULL, obs_idx = NULL, sel = NULL))
-        ## if (str_detect(strat, 'comb'))
+
+        # while not done, fit model to current observations
         obs <- which(!is.na(df$infestation))
         unobs <- which(is.na(df$infestation))
-        fit_dat <- build_pred_dat(df, obs, pred)
+        fit_dat <- build_pred_dat(df, pred)
         stack <- spde_stack(fit_dat, mesh, spde)
-        ft <- fit_gp2(df = fit_dat, spde = spde, stack = stack)
-        ## checking here implies didn't actually "visit" sel
+        ft <- fit_gp_both(df = fit_dat, spde = spde, stack = stack)
+
+        # check if control target has been met
         if (.x > 2 & length(unique(fit_dat$truth[obs])) > 1)
             done <<- check_complete(ft, unobs, tar_thresh * ntot, conf_lvl)
+
+        # if not, select new locations to sample
         if (is.null(strat_arg))
             ## sel <- do.call(strat, splice(unobs, ft))
             sel <- rand_unif(unobs, ft)
@@ -102,33 +104,32 @@ sampling_design <- function(df, init = 10,
     return(drop_na(ret))
 }
 
+##' Check whether the design target has been met
+##'
+##' @title check_complete
+##' @param fit An INLA object
+##' @return A boolean indicating whether Pr(pct. infested > `tar_inc`) > `conf_lvl`
 check_complete <- function(fit, unobs_idx, tar_inc, conf_lvl) {
+
+    # Draw from the posterior predictions on unvisited locations and return # infested
     samp_inc <- function(s) {
         s$latent %>%
             inla.link.invlogit %>%
             map_int(~sample(c(0L, 1L), size = 1, prob = c(1 - .x, .x))) %>%
             sum
     }
-    if (sum(fit$summary.fitted.values$mean[unobs_idx]) > 2.1 * tar_inc)
-        return(FALSE)
+
+    # Draw from the joint risk at unvisited locations
     samp <- inla.posterior.sample(
         5000, fit,
         selection = list(APredictor = unobs_idx),
         use.improved.mean = FALSE,
         skew.corr = FALSE
     )
+
+    # Get predicted num. infested and return estimated CDF
     pred_inc <- map_int(samp, samp_inc)
     (sum(pred_inc < tar_inc) / length(pred_inc)) > conf_lvl
-}
-
-build_pred_dat <- function(df, obs_idx, pred_type) { # df NOT dummy coded
-    if (pred_type == 'known')
-        df_ret <- df
-    else if (pred_type == 'global')
-        df_ret <- select(df, id:village, dist_perim:truth)
-    else if (pred_type == 'latent')
-        return(select(df, id:village, infestation:truth)) # don't rescale anything
-    return(rescale_cont_vars(df_ret))
 }
 
 dat_org <- prep_model_data('../data-raw/gtm-tp-mf.rds')

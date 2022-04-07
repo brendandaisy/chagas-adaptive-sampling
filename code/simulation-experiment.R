@@ -4,13 +4,12 @@ source('as-fn-helpers.R')
 NREP <- 2
 PRED <- 'global'
 THRESH <- 0.05
-### DANGER!! Change VERSION!!!!!!!!!
-VERSION <- 3.4 # change this whenever new round (not) compat with prev samples
+### DANGER!!!! <- 3.4 # change this whenever new round (not) compat with prev samples
 
 plan(multisession, workers = 2)
-dat_org <- prep_model_data('../data-raw/gtm-tp-mf.rds')
+dat_org <- read_csv('data/survey-data.csv') # TODO this 
 
-bs_pat <- bigg_bs(
+bs_pat <- run_simulation_study(
     filter(dat_org, village == 'Paternito'),
     alphas = c(0, .15, .3, .7, 1, 2),
     n_init = 10,
@@ -19,9 +18,9 @@ bs_pat <- bigg_bs(
     tar_thresh = THRESH
 )
 
-saveRDS(bs_pat, paste0('bootstrapss/bigg-', PRED, '-v', VERSION, '-pat.rds'))
+saveRDS(bs_pat, paste0('bootstrapss/bigg-', PRED, '-pat.rds'))
 
-bs_gua <- bigg_bs(
+bs_gua <- run_simulation_study(
     filter(dat_org, village == 'Guayabo'),
     alphas = c(0, .15, .3, .7, 1, 2),
     n_init = 10,
@@ -30,9 +29,9 @@ bs_gua <- bigg_bs(
     tar_thresh = THRESH
 )
 
-saveRDS(bs_gua, paste0('bootstrapss/bigg-', PRED, '-v', VERSION, '-gua.rds'))
+saveRDS(bs_gua, paste0('bootstrapss/bigg-', PRED, '-gua.rds'))
 
-bs_pre <- bigg_bs(
+bs_pre <- run_simulation_study(
     filter(dat_org, village == 'Prensa'),
     alphas = c(0, .15, .3, .7, 1, 2),
     n_init = 10,
@@ -41,10 +40,10 @@ bs_pre <- bigg_bs(
     tar_thresh = THRESH
 )
 
-saveRDS(bs_pre, paste0('bootstrapss/bigg-', PRED, '-v', VERSION, '-pre.rds'))
+saveRDS(bs_pre, paste0('bootstrapss/bigg-', PRED, '-pre.rds'))
 
-bs_cer <- bigg_bs(
-    filter(dat_org, village == 'Cerrón'),
+bs_cer <- run_simulation_study(
+    filter(dat_org, village == 'Cerrï¿½n'),
     alphas = c(0, .15, .3, .7, 1, 2),
     n_init = 10,
     n_rep = NREP,
@@ -52,9 +51,9 @@ bs_cer <- bigg_bs(
     tar_thresh = THRESH
 )
 
-saveRDS(bs_cer, paste0('bootstrapss/bigg-', PRED, '-v', VERSION, '-cer.rds'))
+saveRDS(bs_cer, paste0('bootstrapss/bigg-', PRED, '-cer.rds'))
 
-bs_ama <- bigg_bs(
+bs_ama <- run_simulation_study(
     filter(dat_org, village == 'Amatillo'),
     alphas = c(0, .15, .3, .7, 1, 2),
     n_init = 10,
@@ -63,4 +62,4 @@ bs_ama <- bigg_bs(
     tar_thresh = THRESH
 )
 
-saveRDS(bs_ama, paste0('bootstrapss/bigg-', PRED, '-v', VERSION, '-ama.rds'))
+saveRDS(bs_ama, paste0('bootstrapss/bigg-', PRED, '-ama.rds'))
