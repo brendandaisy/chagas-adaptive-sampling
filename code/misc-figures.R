@@ -102,7 +102,7 @@ rho_all <- map_dfr(
     ~mutate(as_tibble(inla.hpdmarginal(0.95, .x)), mode = inla.mmarginal(.x))
 )
 
-## Figure S2: Posterior of effective range
+## Figure S1: Posterior of effective range
 bind_rows(
     mutate(marg_rho(summ_both_global), pred = 'Global only'),
     mutate(marg_rho(summ_both_known), pred = 'All')

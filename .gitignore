@@ -1,5 +1,6 @@
 
 survey-data.csv
+code/anon-survey-data.R
 
 .Rproj.user
 .Rhistory
@@ -8,10 +9,11 @@ survey-data.csv
 *~
 **/*~
 old-scripts/*
+figs
+submission1
 **/*.rds
 **/*.tex
 **/*.aux
-**/*.pdf
 **/*.png
 **/*.svg
 **/*.log

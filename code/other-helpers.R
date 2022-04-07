@@ -7,6 +7,7 @@ library(rgdal)
 library(sf)
 library(geosphere)
 library(caret)
+library(tidyverse)
 
 ### Covariate helpers--------------------------------------------------------
 

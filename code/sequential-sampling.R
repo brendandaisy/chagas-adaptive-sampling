@@ -15,7 +15,7 @@ source('code/seq-sampling-helpers.R')
 ##' @param n_init Number of initial random samples
 ##' @param n_rep Number of replications of experiment
 run_simulation_study <- function(df, alphas, n_init = 10, n_rep = 10,
-                    pred = c('global', 'known', 'interp', 'latent'),
+                    pred = c('global', 'known', 'latent'),
                     tar_thresh = 0.05, conf_lvl = 0.95, silent = FALSE) {
     future_map_dfr(1:n_rep, ~{
         init <- sample(1:nrow(df), n_init)
@@ -55,6 +55,7 @@ design_score <- function(des, tru_inf) {
 ##' @param conf_lvl The confidence level for meeting the reduction target
 ##' @param strat_arg A named list to pass to sampling strat
 ##' @param seed Randomization seed
+##' @return A dataframe containing the INLA fit, observed indices so far, and locations just chosen for each iteration
 sampling_design <- function(
     df, init = 10, pred = c('global', 'known', 'interp', 'latent'),
      tar_thresh = 0.05, conf_lvl = 0.95, silent = TRUE, strat_arg = NULL, seed = NULL
@@ -78,6 +79,8 @@ sampling_design <- function(
     ret <- map_dfr(1:ntot, ~{
         if (done)
             return(tibble_row(fit = NULL, obs_idx = NULL, sel = NULL))
+        if (!silent)
+            print(paste0("Begin iteration ", .x))
 
         # while not done, fit model to current observations
         obs <- which(!is.na(df$infestation))
@@ -91,9 +94,9 @@ sampling_design <- function(
             done <<- check_complete(ft, unobs, tar_thresh * ntot, conf_lvl)
 
         # if not, select new locations to sample
-        if (is.null(strat_arg))
-            ## sel <- do.call(strat, splice(unobs, ft))
+        if (is.null(strat_arg)) {
             sel <- rand_unif(unobs, ft)
+        }
         else {
             strat_arg$t <- (length(obs) - length(init)) / (ntot - length(init))
             sel <- comb_risk_var(unobs, ft, strat_arg$t, strat_arg$alpha)
@@ -132,8 +135,8 @@ check_complete <- function(fit, unobs_idx, tar_inc, conf_lvl) {
     (sum(pred_inc < tar_inc) / length(pred_inc)) > conf_lvl
 }
 
-dat_org <- prep_model_data('../data-raw/gtm-tp-mf.rds')
-dat_sub <- filter(dat_org, village == 'Paternito')
+# dat_org <- prep_model_data('../data-raw/gtm-tp-mf.rds')
+# dat_sub <- filter(dat_org, village == 'Paternito')
 
 ## des <- sampling_design(dat_sub, init = 70, pred = 'known', strat_arg = list(alpha = 0.15), tar_thresh = 0.1)
 ## des_score(des, dat_sub$truth)
@@ -146,19 +149,19 @@ dat_sub <- filter(dat_org, village == 'Paternito')
 ##     dat_sub
 ## )
 
-mesh <- inla_mesh(dat_sub)
-spde <- inla.spde2.pcmatern(
-    mesh = mesh,
-    alpha = 2,
-    prior.range = c(0.1, 0.05),
-    prior.sigma = c(3, 0.1)
-)
-obs <- sample(nrow(dat_sub), 50)
-fit_dat <- build_pred_dat(dat_sub, obs, 'global')
-stack <- spde_stack(fit_dat, mesh, spde)
-ft <- fit_old(df = fit_dat)
+# mesh <- inla_mesh(dat_sub)
+# spde <- inla.spde2.pcmatern(
+#     mesh = mesh,
+#     alpha = 2,
+#     prior.range = c(0.1, 0.05),
+#     prior.sigma = c(3, 0.1)
+# )
+# obs <- sample(nrow(dat_sub), 50)
+# fit_dat <- build_pred_dat(dat_sub, obs, 'global')
+# stack <- spde_stack(fit_dat, mesh, spde)
+# ft <- fit_old(df = fit_dat)
 
-plot_obs_surface(ft$summary.fitted.values, 1:nrow(dat_sub), dat_sub)
+# plot_obs_surface(ft$summary.fitted.values, 1:nrow(dat_sub), dat_sub)
 
 ## A <- inla.spde.make.A(mesh = mesh, loc = sp_project(dat_sub, normalize = TRUE))
 ## stack <- spde_stack(pd, mesh, spde)
