@@ -1,7 +1,10 @@
+# -------------------------------------------------------------------------
+# seq-sampling-helpers.R---------------------------------------------------
+# -------------------------------------------------------------------------
+
 require(INLA)
 require(gridExtra)
 require(ggthemes)
-require(tikzDevice)
 
 ### Selection Methods-----------------------------------------------------------
 
@@ -223,6 +226,11 @@ inla_mesh <- function(df, project=FALSE) {
 
 ### Plotting--------------------------------------------------------------------
 
+##' Plot the mean and standard deviation of some field at each location
+##' `fit_sum` must be something (i.e. from INLA model fit) containing `mean` and `sd` values
+##' only works for models fit using `fit_gp_spatial_dense`
+##'
+##' @title plot_obs_surface
 plot_obs_surface <- function(fit_sum, obs_idx, df) {
   dfs <- df %>%
     mutate(
@@ -249,25 +257,4 @@ plot_obs_surface <- function(fit_sum, obs_idx, df) {
     theme_bw()
   
   grid.arrange(gg1, gg2, nrow = 1)
-}
-
-plot_stat_timeseries <- function(fits, key, stat) {
-  df <- map_dfr(fits, ~{
-    if (vec_depth(.x[[key]]) > 2)
-      svec <- flatten(.x[[key]])[[stat]]
-    else
-      svec <- .x[[key]][[stat]]
-    names(svec) <- as.character(1:length(svec))
-    tibble_row(!!!svec)
-  })
-  
-  gg <- df %>%
-    mutate(t = 1:n()) %>%
-    pivot_longer(-t) %>%
-    ggplot(aes(t, log(value), col = name, group = name)) +
-    geom_line(alpha = .8) +
-    ## scale_color_viridis_c() +
-    theme(legend.position = 'none')
-  
-  print(gg)
 }

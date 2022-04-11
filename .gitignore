@@ -1,6 +1,9 @@
 
 survey-data.csv
 code/anon-survey-data.R
+figs
+submission1
+bootstrap-results
 
 .Rproj.user
 .Rhistory
@@ -8,9 +11,6 @@ code/anon-survey-data.R
 .Ruserdata
 *~
 **/*~
-old-scripts/*
-figs
-submission1
 **/*.rds
 **/*.tex
 **/*.aux

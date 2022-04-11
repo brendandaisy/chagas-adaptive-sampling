@@ -1,65 +1,68 @@
-source('adaptive-sampling-fn.R')
-source('as-fn-helpers.R')
+# -------------------------------------------------------------------------
+# simulation-experiment.R--------------------------------------------------
+# -------------------------------------------------------------------------
+# simulation study described in Sec. 2.6-----------------------------------
+# run for each village using the given params and a variety of `alpha`s----
+# -------------------------------------------------------------------------
 
-NREP <- 2
+library(future)
+source('code/sequential-sampling.R')
+
+NREP <- 1
 PRED <- 'global'
 THRESH <- 0.05
-### DANGER!!!! <- 3.4 # change this whenever new round (not) compat with prev samples
+N_INIT <- 10
+CONF_LVL <- 0.95
 
-plan(multisession, workers = 2)
-dat_org <- read_csv('data/survey-data.csv') # TODO this 
+plan(multisession, workers = 4) # set to number of available cores
+dat_org <- read_csv('anon-survey-data.csv')
 
-bs_pat <- run_simulation_study(
+pat_results <- run_simulation_study(
     filter(dat_org, village == 'Paternito'),
     alphas = c(0, .15, .3, .7, 1, 2),
-    n_init = 10,
+    n_init = N_INIT,
     n_rep = NREP,
     pred = PRED,
-    tar_thresh = THRESH
+    tar_thresh = THRESH,
+    conf_lvl = CONF_LVL
 )
 
-saveRDS(bs_pat, paste0('bootstrapss/bigg-', PRED, '-pat.rds'))
-
-bs_gua <- run_simulation_study(
+gua_results <- run_simulation_study(
     filter(dat_org, village == 'Guayabo'),
     alphas = c(0, .15, .3, .7, 1, 2),
-    n_init = 10,
+    n_init = N_INIT,
     n_rep = NREP,
     pred = PRED,
-    tar_thresh = THRESH
+    tar_thresh = THRESH,
+    conf_lvl = CONF_LVL
 )
 
-saveRDS(bs_gua, paste0('bootstrapss/bigg-', PRED, '-gua.rds'))
-
-bs_pre <- run_simulation_study(
+pre_results <- run_simulation_study(
     filter(dat_org, village == 'Prensa'),
     alphas = c(0, .15, .3, .7, 1, 2),
-    n_init = 10,
+    n_init = N_INIT,
     n_rep = NREP,
     pred = PRED,
-    tar_thresh = THRESH
+    tar_thresh = THRESH,
+    conf_lvl = CONF_LVL
 )
 
-saveRDS(bs_pre, paste0('bootstrapss/bigg-', PRED, '-pre.rds'))
-
-bs_cer <- run_simulation_study(
+cer_results <- run_simulation_study(
     filter(dat_org, village == 'Cerr�n'),
     alphas = c(0, .15, .3, .7, 1, 2),
-    n_init = 10,
+    n_init = N_INIT,
     n_rep = NREP,
     pred = PRED,
-    tar_thresh = THRESH
+    tar_thresh = THRESH,
+    conf_lvl = CONF_LVL
 )
 
-saveRDS(bs_cer, paste0('bootstrapss/bigg-', PRED, '-cer.rds'))
-
-bs_ama <- run_simulation_study(
+ama_results <- run_simulation_study(
     filter(dat_org, village == 'Amatillo'),
     alphas = c(0, .15, .3, .7, 1, 2),
-    n_init = 10,
+    n_init = N_INIT,
     n_rep = NREP,
     pred = PRED,
-    tar_thresh = THRESH
+    tar_thresh = THRESH,
+    conf_lvl = CONF_LVL
 )
-
-saveRDS(bs_ama, paste0('bootstrapss/bigg-', PRED, '-ama.rds'))

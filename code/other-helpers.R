@@ -1,15 +1,15 @@
-###
-## helper functions for spatial analyses, such as getting a matrix of distances
-## or a tidygraph of neighbors
-###
+# -------------------------------------------------------------------------
+# other-helpers.R----------------------------------------------------------
+# -------------------------------------------------------------------------
+# miscellaneous helper functions used throughout the project---------------
+# -------------------------------------------------------------------------
 
-library(rgdal)
 library(sf)
 library(geosphere)
 library(caret)
 library(tidyverse)
 
-### Covariate helpers--------------------------------------------------------
+# Covariate helpers--------------------------------------------------------
 
 ##' Get the predictor data matching pred type (e.g global vs. known in text)
 ##' Continuous variables will be normalized
@@ -40,7 +40,7 @@ rescale_cont_vars <- function(df) {
         relocate(contains('num_'), dist_perim, density, .before = infestation)
 }
 
-### Distance and spatial objects helpers------------------------------------
+# Distance and spatial objects helpers-------------------------------------
 
 dist_mat <- function(df, normalize=FALSE, cutoff=NULL) {
   dm <- df %>%
