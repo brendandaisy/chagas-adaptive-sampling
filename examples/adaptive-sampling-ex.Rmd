@@ -2,21 +2,19 @@
 title: Sequential Sampling Examples
 subtitle: Using the provided functions for sequential sampling
 author: B. K. M. Case
-date: April 7, 2022
-output: pdf_document
+date: April 11, 2022
+output: rmarkdown::github_document
 ---
 
-Example of using some of the functions from this study. 
-Please note, however, that this code was not intended to work on other datasets and would require minor changes to do so.
+Example of performing the adaptive sampling algorithm from this study. 
+Please note that this code was not intended to work on other datasets and would require some minor changes to do so.
 
 ### Load required packages and the data
 
-```{r, include=FALSE}
-source("code/sequential-sampling.R")
-```
-
 Here we will use the data from the village El Paternito:
 ```{r, include=FALSE}
+source("code/sequential-sampling.R")
+
 dat_org <- read_csv("anon-survey-data.csv")
 dat_sub <- filter(dat_org, village == 'Paternito')
 ```

@@ -1,12 +1,14 @@
+# -------------------------------------------------------------------------
+# misc-figures.R-----------------------------------------------------------
+# -------------------------------------------------------------------------
+# code to create all the figures other than from the simulation study------
+# -------------------------------------------------------------------------
+
 library(tidyverse)
 library(tikzDevice)
 
 source('code/other-helpers.R')
 source('code/seq-sampling-helpers.R')
-
-options(
-    tikzLatexPackages = c(getOption( "tikzLatexPackages" ), '\\usepackage{bm}')
-)
 
 full_vil_summ <- function(df, village, pred_type = 'global', fit_fun = fit_gp_both) {
     dfs <- filter(df, village == !!village)

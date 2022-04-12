@@ -2,9 +2,10 @@
 # seq-sampling-helpers.R---------------------------------------------------
 # -------------------------------------------------------------------------
 
-require(INLA)
-require(gridExtra)
-require(ggthemes)
+library(INLA)
+library(tidyverse)
+library(gridExtra)
+library(ggthemes)
 
 ### Selection Methods-----------------------------------------------------------
 

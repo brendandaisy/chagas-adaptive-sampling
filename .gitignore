@@ -9,6 +9,7 @@ bootstrap-results
 .Rhistory
 .RData
 .Ruserdata
+**/*.html
 *~
 **/*~
 **/*.rds
