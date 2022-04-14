@@ -3,7 +3,7 @@ title: Sequential Sampling Example
 subtitle: Using the provided functions for sequential sampling
 author: B. K. M. Case
 date: April 11, 2022
-output: rmarkdown::github_document
+output: pdf_document
 ---
 
 Here we provide a quick example of performing the adaptive sampling algorithm from this study. 

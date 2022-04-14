@@ -3,7 +3,7 @@ title: Spatial modeling with INLA
 subtitle: A short tutorial
 author: B. K. M. Case
 date: April 11, 2022
-output: rmarkdown::github_document
+output: pdf_document
 ---
 
 Here we provide a short tutorial on fitting the types of spatial models used throughout the paper using the R-INLA package. 
