@@ -35,7 +35,7 @@ ggplot(pat, aes(long, lat, col = as.factor(infestation))) +
     labs(x = NULL, y = NULL, col = 'Infestation status')
 ```
 
-![](figs/examplesunnamed-chunk-3-1.png)<!-- -->
+![](readme-figs/examplesunnamed-chunk-3-1.png)<!-- -->
 
 We find that infested houses tend to be in middle and upper parts of the
 village, and often can be found close to other infested houses.
@@ -153,7 +153,7 @@ pat |>
     labs(x = NULL, y = NULL, col = 'Infestation status', size = "Pred. risk")
 ```
 
-![](figs/examplesunnamed-chunk-6-1.png)<!-- -->
+![](readme-figs/examplesunnamed-chunk-6-1.png)<!-- -->
 
 Marginal distributions for the coefficients can be accessed similarly,
 which can then be converted into density functions, sampled from, etc.
@@ -163,7 +163,7 @@ marg <- fit_fx_only$marginals.fixed$dist_perim
 qplot(marg[,1], marg[,2], xlab = "Distance from perimeter", ylab = "Density")
 ```
 
-![](figs/examplesunnamed-chunk-7-1.png)<!-- -->
+![](readme-figs/examplesunnamed-chunk-7-1.png)<!-- -->
 
 The posterior probability that `dist_perim` has a positive association
 with the response can be computed like this:
@@ -418,7 +418,7 @@ pat |>
     labs(x = NULL, y = NULL, col = 'Infestation status', size = "Pred. risk")
 ```
 
-![](figs/examplesunnamed-chunk-13-1.png)<!-- -->
+![](readme-figs/examplesunnamed-chunk-13-1.png)<!-- -->
 
 We find that the spatial model has identified that the lower part of the
 village has fewer infestations much better than the model using only
