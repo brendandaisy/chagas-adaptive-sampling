@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/275468173.svg)](https://zenodo.org/badge/latestdoi/275468173)
+
 This repository contains the code and data necessary for reproducing the results in the paper 
 [Spatial epidemiology and adaptive targeted sampling to manage the Chagas disease vector Triatoma dimidiata](https://arxiv.org/abs/2111.05964),
 by B. K. M. Case et al.
