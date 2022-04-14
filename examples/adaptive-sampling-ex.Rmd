@@ -1,22 +1,22 @@
 ---
-title: Sequential Sampling Examples
+title: Sequential Sampling Example
 subtitle: Using the provided functions for sequential sampling
 author: B. K. M. Case
 date: April 11, 2022
 output: rmarkdown::github_document
 ---
 
-Example of performing the adaptive sampling algorithm from this study. 
+Here we provide a quick example of performing the adaptive sampling algorithm from this study. 
 Please note that this code was not intended to work on other datasets and would require some minor changes to do so.
 
 ### Load required packages and the data
 
 Here we will use the data from the village El Paternito:
-```{r, include=FALSE}
-source("code/sequential-sampling.R")
 
-dat_org <- read_csv("anon-survey-data.csv")
-dat_sub <- filter(dat_org, village == 'Paternito')
+```{r, message=FALSE, results=FALSE, warning=FALSE}
+library(tidyverse)
+source("code/sequential-sampling.R")
+pat <- filter(read_csv("anon-survey-data.csv"), village == "Paternito")
 ```
 
 ### The `sampling_design` function
@@ -24,7 +24,7 @@ dat_sub <- filter(dat_org, village == 'Paternito')
 This function will take care of most of the required setup for us, so we can skip the usual steps of using SPDE and get results right away.
 
 ```{r}
-design <- sampling_design(dat_sub, init=30, pred="known", silent=FALSE, strat_arg=list(alpha=0.5))
+design <- sampling_design(pat, init=30, pred="known", silent=FALSE, strat_arg=list(alpha=0.5))
 ```
 
 Here, we have used adaptive sampling with an initial sample of 30 houses, the globally available covariates, and exploration parameter $\alpha=1$. 
@@ -33,7 +33,7 @@ We have also set `silent=FALSE` to print our progress each iteration of the algo
 We can leave `strat_arg` empty to use random selection:
 
 ```{r}
-design_random <- sampling_design(dat_sub, init=30, pred="global")
+design_random <- sampling_design(pat, init=30, pred="global")
 ```
 
 ### Scoring the designs
@@ -41,8 +41,8 @@ design_random <- sampling_design(dat_sub, init=30, pred="global")
 To evaluate the number of houses visited and the true infection rate remaining in the village, we run 
 
 ```{r}
-design_score(design, dat_sub$truth)
-design_score(design_random, dat_sub$truth)
+design_score(design, pat$truth)
+design_score(design_random, pat$truth)
 ```
 
 The second argument of `design_score` is a vector of the true infection labels in the village.

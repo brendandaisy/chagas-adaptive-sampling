@@ -1,4 +1,7 @@
-## Spatial Modeling with INLA
+Spatial modeling with INLA
+================
+B. K. M. Case
+April 11, 2022
 
 Here we provide a short tutorial on fitting the types of spatial models
 used throughout the paper using the R-INLA package. INLA (Integrated
@@ -35,7 +38,7 @@ ggplot(pat, aes(long, lat, col = as.factor(infestation))) +
     labs(x = NULL, y = NULL, col = 'Infestation status')
 ```
 
-![](readme-figs/examplesunnamed-chunk-3-1.png)<!-- -->
+![](readme-figs/unnamed-chunk-3-1.png)<!-- -->
 
 We find that infested houses tend to be in middle and upper parts of the
 village, and often can be found close to other infested houses.
@@ -73,7 +76,7 @@ summary(fit_fx_only)
     ##    = inla.mode, safe = FALSE, debug = debug, ", " .parent.frame = 
     ##    .parent.frame)") 
     ## Time used:
-    ##     Pre = 2.04, Running = 0.106, Post = 0.0164, Total = 2.16 
+    ##     Pre = 0.876, Running = 0.357, Post = 0.0698, Total = 1.3 
     ## Fixed effects:
     ##                   mean    sd 0.025quant 0.5quant 0.975quant mode   kld
     ## (Intercept)     -2.356 0.721     -3.853   -2.329     -1.023   NA 0.004
@@ -153,7 +156,7 @@ pat |>
     labs(x = NULL, y = NULL, col = 'Infestation status', size = "Pred. risk")
 ```
 
-![](readme-figs/examplesunnamed-chunk-6-1.png)<!-- -->
+![](readme-figs/unnamed-chunk-6-1.png)<!-- -->
 
 Marginal distributions for the coefficients can be accessed similarly,
 which can then be converted into density functions, sampled from, etc.
@@ -163,7 +166,7 @@ marg <- fit_fx_only$marginals.fixed$dist_perim
 qplot(marg[,1], marg[,2], xlab = "Distance from perimeter", ylab = "Density")
 ```
 
-![](readme-figs/examplesunnamed-chunk-7-1.png)<!-- -->
+![](readme-figs/unnamed-chunk-7-1.png)<!-- -->
 
 The posterior probability that `dist_perim` has a positive association
 with the response can be computed like this:
@@ -233,7 +236,7 @@ summary(fit_vil)
     ##    = inla.mode, safe = FALSE, debug = debug, ", " .parent.frame = 
     ##    .parent.frame)") 
     ## Time used:
-    ##     Pre = 1.45, Running = 0.815, Post = 0.0254, Total = 2.29 
+    ##     Pre = 0.516, Running = 0.417, Post = 0.0809, Total = 1.01 
     ## Fixed effects:
     ##                   mean    sd 0.025quant 0.5quant 0.975quant mode kld
     ## (Intercept)     -1.162 0.243     -1.617   -1.172     -0.656   NA   0
@@ -247,7 +250,7 @@ summary(fit_vil)
     ## 
     ## Model hyperparameters:
     ##                          mean       sd 0.025quant 0.5quant 0.975quant mode
-    ## Precision for village 6098.10 13662.39       1.89    17.26   50737.43   NA
+    ## Precision for village 6098.23 13661.57       1.89    17.26   50735.09   NA
     ## 
     ## Marginal log-Likelihood:  -565.14 
     ##  is computed 
@@ -298,7 +301,7 @@ summary(fit_vil)
     ##    = inla.mode, safe = FALSE, debug = debug, ", " .parent.frame = 
     ##    .parent.frame)") 
     ## Time used:
-    ##     Pre = 1.65, Running = 1.11, Post = 0.0428, Total = 2.8 
+    ##     Pre = 1.23, Running = 0.648, Post = 0.0155, Total = 1.9 
     ## Fixed effects:
     ##                   mean    sd 0.025quant 0.5quant 0.975quant mode kld
     ## (Intercept)     -1.108 0.264     -1.622   -1.111     -0.578   NA   0
@@ -386,10 +389,10 @@ summary(fit_gp_dense)
     ##    = inla.mode, safe = FALSE, debug = debug, ", " .parent.frame = 
     ##    .parent.frame)") 
     ## Time used:
-    ##     Pre = 1.57, Running = 6.32, Post = 0.0315, Total = 7.92 
+    ##     Pre = 1.19, Running = 2.91, Post = 0.0173, Total = 4.12 
     ## Fixed effects:
     ##                   mean    sd 0.025quant 0.5quant 0.975quant mode kld
-    ## (Intercept)     -2.400 0.872     -4.181   -2.377     -0.746   NA   0
+    ## (Intercept)     -2.400 0.872     -4.180   -2.377     -0.746   NA   0
     ## bed_hygienemala  1.418 0.577      0.344    1.397      2.611   NA   0
     ## num_dogs         0.218 0.135     -0.042    0.216      0.488   NA   0
     ## dist_perim       0.001 0.002     -0.002    0.001      0.005   NA   0
@@ -418,7 +421,7 @@ pat |>
     labs(x = NULL, y = NULL, col = 'Infestation status', size = "Pred. risk")
 ```
 
-![](readme-figs/examplesunnamed-chunk-13-1.png)<!-- -->
+![](readme-figs/unnamed-chunk-13-1.png)<!-- -->
 
 We find that the spatial model has identified that the lower part of the
 village has fewer infestations much better than the model using only
@@ -426,45 +429,111 @@ fixed effects.
 
 ### Further reading
 
-## Using the adaptive sampling functions
+Fitting spatial models using INLA may seem like a daunting task.
+However, if you are looking to harness the benefits of fully Bayesian
+inference on a dataset containing more than a few hundred points, or
+need to fit many models (as is the case with adaptive sampling), its
+speed and relative ease of use is hard to beat. To learn more about
+spatial modeling with INLA, consider starting with these online, free
+resources:
 
-Example of performing the adaptive sampling algorithm from this study. 
-Please note that this code was not intended to work on other datasets and would require some minor changes to do so.
+  - For a general overview using the R-INLA software, including some
+    examples of spatial modeling, see Gómez-Rubio’s online book
+    (Bayesian inference with
+    INLA)\[<https://becarioprecario.bitbucket.io/inla-gitbook/index.html>\].
+    This reference contains the information necessary to set prior
+    distributions, sample from posterior predictive distributions, and
+    handling missing values.
+  - For an intuitive overview of the INLA algorithm itself, see Kathryn
+    Morrison’s article
+    (here)\[<https://www.precision-analytics.ca/articles/a-gentle-inla-tutorial/>\].
+  - For a deeper look into the SPDE approach but from a practical
+    perspective, see the textbook (Advanced Spatial Modeling with
+    Stochastic Partial Differential Equations Using R and
+    INLA)\[<https://becarioprecario.bitbucket.io/spde-gitbook/>\]. This
+    is probably the best reference to get started with applying
+    INLA-SPDE to your own dataset.
+
+
+## Using the adaptive sampling algorithm
+
+Here we provide a quick example of performing the adaptive sampling
+algorithm from this study. Please note that this code was not intended
+to work on other datasets and would require some minor changes to do so.
 
 ### Load required packages and the data
 
 Here we will use the data from the village El Paternito:
-```{r, include=FALSE}
-source("code/sequential-sampling.R")
 
-dat_org <- read_csv("anon-survey-data.csv")
-dat_sub <- filter(dat_org, village == 'Paternito')
+``` r
+library(tidyverse)
+source("code/sequential-sampling.R")
+pat <- filter(read_csv("anon-survey-data.csv"), village == "Paternito")
 ```
 
 ### The `sampling_design` function
 
-This function will take care of most of the required setup for us, so we can skip the usual steps of using SPDE and get results right away.
+This function will take care of most of the required setup for us, so we
+can skip the usual steps of using SPDE and get results right away.
 
-```{r}
-design <- sampling_design(dat_sub, init=30, pred="known", silent=FALSE, strat_arg=list(alpha=0.5))
+``` r
+design <- sampling_design(pat, init=30, pred="known", silent=FALSE, strat_arg=list(alpha=0.5))
 ```
 
-Here, we have used adaptive sampling with an initial sample of 30 houses, the globally available covariates, and exploration parameter $\alpha=1$. 
-We have also set `silent=FALSE` to print our progress each iteration of the algorithm.
+    ## [1] "Begin iteration 1"
+    ## [1] "Begin iteration 2"
+    ## [1] "Begin iteration 3"
+    ## [1] "Begin iteration 4"
+    ## [1] "Begin iteration 5"
+    ## [1] "Begin iteration 6"
+    ## [1] "Begin iteration 7"
+    ## [1] "Begin iteration 8"
+    ## [1] "Begin iteration 9"
+    ## [1] "Begin iteration 10"
+    ## [1] "Begin iteration 11"
+    ## [1] "Begin iteration 12"
+    ## [1] "Begin iteration 13"
+    ## [1] "Begin iteration 14"
+    ## [1] "Begin iteration 15"
+    ## [1] "Begin iteration 16"
+    ## [1] "Begin iteration 17"
+    ## [1] "Begin iteration 18"
+    ## [1] "Begin iteration 19"
+    ## [1] "Begin iteration 20"
+
+Here, we have used adaptive sampling with an initial sample of 30
+houses, the globally available covariates, and exploration parameter
+\(\alpha=1\). We have also set `silent=FALSE` to print our progress each
+iteration of the algorithm.
 
 We can leave `strat_arg` empty to use random selection:
 
-```{r}
-design_random <- sampling_design(dat_sub, init=30, pred="global")
+``` r
+design_random <- sampling_design(pat, init=30, pred="global")
 ```
 
 ### Scoring the designs
 
-To evaluate the number of houses visited and the true infection rate remaining in the village, we run 
+To evaluate the number of houses visited and the true infection rate
+remaining in the village, we run
 
-```{r}
-design_score(design, dat_sub$truth)
-design_score(design_random, dat_sub$truth)
+``` r
+design_score(design, pat$truth)
 ```
 
-The second argument of `design_score` is a vector of the true infection labels in the village.
+    ## # A tibble: 1 × 4
+    ##       m     n act_pct sel        
+    ##   <int> <int>   <dbl> <list>     
+    ## 1    87   107  0.0467 <list [20]>
+
+``` r
+design_score(design_random, pat$truth)
+```
+
+    ## # A tibble: 1 × 4
+    ##       m     n act_pct sel        
+    ##   <int> <int>   <dbl> <list>     
+    ## 1    99   107  0.0280 <list [24]>
+
+The second argument of `design_score` is a vector of the true infection
+labels in the village.

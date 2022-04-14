@@ -14,7 +14,7 @@ and has become a popular option for geospatial models because of its speed and r
 ### Load required packages and the data
 
 ```{r, include=FALSE}
-knitr::opts_chunk$set(fig.path="figs/examples")
+knitr::opts_chunk$set(fig.path="readme-figs/")
 ```
 
 ```{r, message=FALSE, results=FALSE, warning=FALSE}
@@ -182,3 +182,15 @@ the model using only fixed effects.
 
 ### Further reading
 
+Fitting spatial models using INLA may seem like a daunting task. However, if you are looking to harness the benefits of fully Bayesian inference
+on a dataset containing more than a few hundred points, or need to fit many models (as is the case with adaptive sampling), its speed and relative 
+ease of use is hard to beat. To learn more about spatial modeling with INLA, consider starting with these online, free resources:
+
+- For a general overview using the R-INLA software, including some examples of spatial modeling, see Gómez-Rubio's online book 
+(Bayesian inference with INLA)[https://becarioprecario.bitbucket.io/inla-gitbook/index.html]. This reference contains the information 
+necessary to set prior distributions, sample from posterior predictive distributions, and handling missing values.
+- For an intuitive overview of the INLA algorithm itself, see Kathryn Morrison's 
+article (here)[https://www.precision-analytics.ca/articles/a-gentle-inla-tutorial/].
+- For a deeper look into the SPDE approach but from a practical perspective, see the textbook 
+(Advanced Spatial Modeling with Stochastic Partial Differential Equations Using R and INLA)[https://becarioprecario.bitbucket.io/spde-gitbook/].
+This is probably the best reference to get started with applying INLA-SPDE to your own dataset.
