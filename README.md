@@ -93,7 +93,7 @@ summary(fit_fx_only)
 You may notice the syntax is quite similar to base R’s `lm` and `glm`
 functions: first we provide a formula with names corresponding to the
 data specified with `data = pat`, then we specify a binomial response to
-indicate our data is binary. Notice also that, just like base R, INLA
+indicate our data are binary. Notice also that, just like base R, INLA
 will automatically convert discrete variables into dummy variables in
 the model matrix.
 
@@ -260,7 +260,7 @@ summary(fit_vil)
 
 There is now a new section in the model summary: the *hyperparameters*.
 In INLA these are defined as any unknown variables that the random
-effects depend on. Notice the precision(inverse variance) of our random
+effects depend on. Notice the precision (inverse variance) of our random
 effect itself has an enormous variance. This is because the default
 prior for the precision is quite diffuse. While this is an appropriate
 weakly informative prior when using linear regression, this is far too
