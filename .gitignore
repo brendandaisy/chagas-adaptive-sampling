@@ -6,7 +6,6 @@ submission*
 bootstrap-results
 old-stat-explore
 old-scripts-etc
-examples/figs
 examples/*.md
 
 .Rproj.user
