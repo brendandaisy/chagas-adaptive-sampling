@@ -2,8 +2,12 @@
 survey-data.csv
 code/anon-survey-data.R
 figs
-submission1
+submission*
 bootstrap-results
+old-stat-explore
+old-scripts-etc
+examples/figs
+examples/*.md
 
 .Rproj.user
 .Rhistory
@@ -15,7 +19,6 @@ bootstrap-results
 **/*.rds
 **/*.tex
 **/*.aux
-**/*.png
 **/*.svg
 **/*.log
 **/*.snm

@@ -5,9 +5,9 @@
 # sampling strategies------------------------------------------------------
 # -------------------------------------------------------------------------
 
-require(tidyverse)
-require(INLA)
-require(furrr)
+library(tidyverse)
+library(INLA)
+library(furrr)
 
 source('code/other-helpers.R')
 source('code/seq-sampling-helpers.R')
