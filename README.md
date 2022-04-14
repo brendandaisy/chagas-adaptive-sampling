@@ -1,7 +1,8 @@
-Spatial modeling with INLA
-================
-B. K. M. Case
-April 11, 2022
+This repository contains the code and data necessary for reproducing the results in the paper 
+[Spatial epidemiology and adaptive targeted sampling to manage the Chagas disease vector Triatoma dimidiata](https://arxiv.org/abs/2111.05964),
+by B. K. M. Case et al.
+
+## Spatial modeling with INLA
 
 Here we provide a short tutorial on fitting the types of spatial models
 used throughout the paper using the R-INLA package. INLA (Integrated
